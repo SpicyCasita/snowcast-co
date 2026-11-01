@@ -89,5 +89,7 @@ jobs:
           git add app/public/data/weights.json pipeline/out/weights.json
           if git diff --cached --quiet; then exit 0; fi
           git commit -m "data: refit weights.json"
+          # verify.yml also commits to main; rebase onto anything it pushed meanwhile.
+          git pull --rebase
           git push
           gh workflow run deploy.yml --ref ${{ github.ref_name }}
