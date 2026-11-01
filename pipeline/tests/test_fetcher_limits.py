@@ -1,7 +1,11 @@
+import sys
+from pathlib import Path
+
 import pytest
 
-import fetch_forecasts
-from fetch_forecasts import Fetcher, StopFetching
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import fetch_forecasts  # noqa: E402
+from fetch_forecasts import Fetcher, StopFetching  # noqa: E402
 
 
 class FakeResponse:
