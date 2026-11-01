@@ -10,6 +10,13 @@ export const range = (r: Range) => {
 
 export const feet = (ft: number) => `${Math.round(ft).toLocaleString()}′`
 
+/** Ensemble shares come from ~80 members, so whole percents clamped away from 0/100 are honest. */
+export const pct = (p: number) => `${Math.min(99, Math.max(1, Math.round(p * 100)))}%`
+
+export const confidenceLabel = (p: number) => `${pct(p)} confident`
+
+export const bucketLabel = ([lo, hi]: [number, number | null]) => (hi == null ? `${lo}"+` : `${lo}–${hi}"`)
+
 const weekday = new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: 'UTC' })
 const monthDay = new Intl.DateTimeFormat('en-US', { month: 'numeric', day: 'numeric', timeZone: 'UTC' })
 export const dayLabel = (isoDate: string, i: number) => {

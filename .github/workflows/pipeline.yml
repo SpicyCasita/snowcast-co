@@ -52,9 +52,16 @@ jobs:
       - name: Fetch SNOTEL observations
         run: python fetch_snotel.py
 
+      # Runs after fetch_snotel.py, which rewrites stations.parquet with SNOTEL only;
+      # this adds the CoCoRaHS town stations back. Months already cached aren't re-downloaded.
+      - name: Fetch CoCoRaHS observations
+        run: python fetch_cocorahs.py
+
       - name: Fetch archived model forecasts
         # Open-Meteo's free tier allows 5k calls/hour and 10k/day, so two runs a day of
-        # 4.5k each. Newest months are fetched first; a rate limit stops downloads cleanly.
+        # 4.5k each. Newest Previous Runs months are fetched first, then pre-2024
+        # Historical Forecast months with whatever budget is left; a rate limit stops
+        # downloads cleanly.
         run: python fetch_forecasts.py --sites all --budget 4500
 
       - uses: actions/cache/save@v4

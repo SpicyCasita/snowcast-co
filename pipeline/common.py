@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pandas as pd
+
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data"
 OUT = ROOT / "out"
@@ -11,6 +13,12 @@ CACHE = DATA / "cache"
 STATIONS_PARQUET = DATA / "stations.parquet"
 SNOTEL_PARQUET = DATA / "snotel.parquet"
 FORECASTS_PARQUET = DATA / "forecasts.parquet"
+# Historical Forecast API rows for dates Previous Runs also covers; kept apart
+# so forecasts.parquet stays unique on (site, date, model, lead_day).
+OVERLAP_PARQUET = DATA / "forecasts_overlap.parquet"
+COCORAHS_PARQUET = DATA / "cocorahs.parquet"
+COCORAHS_STATIONS_PARQUET = DATA / "cocorahs_stations.parquet"
+LOCATIONS_TS = ROOT.parent / "app" / "src" / "data" / "locations.ts"
 WEIGHTS_JSON = OUT / "weights.json"
 
 # SNOTEL reports daily values in Pacific Standard Time for every station
@@ -39,6 +47,19 @@ REGIONS: dict[str, list[float]] = {
 
 # Elevation bands in feet: (label, lower bound inclusive, upper bound exclusive)
 BANDS = [("lt9k", float("-inf"), 9000.0), ("9to11k", 9000.0, 11000.0), ("gt11k", 11000.0, float("inf"))]
+
+
+def station_list(path: Path = STATIONS_PARQUET) -> pd.DataFrame:
+    """stations.parquet with the optional columns filled for SNOTEL-only files.
+
+    source       'snotel' or 'cocorahs'
+    day_start_h  hour (in OBS_TZ) at which the station's observation day
+                 starts; 0 for SNOTEL, the usual morning reading for CoCoRaHS
+    """
+    st = pd.read_parquet(path)
+    st["source"] = st["source"].fillna("snotel") if "source" in st else "snotel"
+    st["day_start_h"] = st["day_start_h"].fillna(0).astype(int) if "day_start_h" in st else 0
+    return st
 
 
 def assign_region(lat: float, lon: float) -> str | None:

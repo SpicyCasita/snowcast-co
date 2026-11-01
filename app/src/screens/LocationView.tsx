@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
 import type { SnowLocation } from '../data/locations'
-import type { BlendedForecast } from '../forecast/blend'
+import { CHANCE_THRESHOLDS, type BlendedForecast } from '../forecast/blend'
 import { fetchElevationFt } from '../forecast/openMeteo'
 import { MODEL_LABELS, type ModelId } from '../forecast/types'
 import { useForecast } from '../forecast/useForecast'
-import { dayLabel, feet, inches, range } from '../format'
-import { HourlyChart } from './HourlyChart'
+import { bucketLabel, dayLabel, feet, inches, pct, range } from '../format'
+import { HourlyChart, WeatherChart } from './HourlyChart'
 
 const MODEL_ORDER: ModelId[] = ['ncep_hrrr_conus', 'ncep_nam_conus', 'ecmwf_ifs025', 'gfs_seamless', 'gem_seamless', 'icon_seamless', 'nws']
 
@@ -78,18 +78,58 @@ export function LocationView({ loc, isFavorite, onToggleFavorite }: Props) {
 function ForecastBody({ forecast }: { forecast: BlendedForecast }) {
   const maxDay = Math.max(1, ...forecast.days.map(d => d.snow.high))
   const models = MODEL_ORDER.filter(m => forecast.members.includes(m))
+  const windows = [['Next 24h', forecast.next24], ['Next 72h', forecast.next72], ['Next 7 days', forecast.next7d]] as const
 
   return (
     <>
       <div className="totals-row">
-        {([['Next 24h', forecast.next24], ['Next 72h', forecast.next72], ['Next 7 days', forecast.next7d]] as const).map(([label, r]) => (
+        {windows.map(([label, r]) => (
           <div key={label} className="total-card">
             <div className="total-card-label">{label}</div>
             <div className="total-card-val">{inches(r.expected)}"</div>
             <div className="total-card-range">likely {range(r)}</div>
+            {r.confidence != null && r.bucket && (
+              <div className="total-card-conf" title={`Chance the total lands in ${bucketLabel(r.bucket)}`}>
+                {pct(r.confidence)} · {bucketLabel(r.bucket)}
+              </div>
+            )}
           </div>
         ))}
       </div>
+
+      {forecast.next24.chance && (
+        <section>
+          <h2 className="section-title">Chance of at least…</h2>
+          <div className="table-scroll">
+            <table className="chance-table">
+              <thead>
+                <tr>
+                  <th />
+                  {CHANCE_THRESHOLDS.map(t => <th key={t}>{t}"</th>)}
+                </tr>
+              </thead>
+              <tbody>
+                {windows.map(([label, r]) => (
+                  <tr key={label}>
+                    <th>{label.replace('Next ', '')}</th>
+                    {CHANCE_THRESHOLDS.map(t => {
+                      const p = r.chance?.[t] ?? 0
+                      return (
+                        <td key={t} style={{ '--p': p } as CSSProperties} className="chance-cell">
+                          {p < 0.01 ? '–' : pct(p)}
+                        </td>
+                      )
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="muted small">
+            From {forecast.next24.ensembleSize} ensemble runs (GEFS + ECMWF), re-centred on the blended forecast. Confidence % = chance the total lands in the shown range bucket.
+          </p>
+        </section>
+      )}
 
       <section>
         <h2 className="section-title">Daily snowfall</h2>
@@ -105,17 +145,30 @@ function ForecastBody({ forecast }: { forecast: BlendedForecast }) {
                 </div>
                 <div className="day-label">{lbl.top}</div>
                 <div className="day-sub muted">{lbl.bottom}</div>
-                <div className="day-sub muted">{d.hiF != null ? `${Math.round(d.hiF)}°/${Math.round(d.loF!)}°` : ''}</div>
+                <div className="day-temp hi">{d.hiF != null ? `${Math.round(d.hiF)}°` : ''}</div>
+                <div className="day-temp lo">{d.loF != null ? `${Math.round(d.loF)}°` : ''}</div>
+                <div className="day-gust" title="Max wind gust (mph)">{d.maxGustMph != null ? Math.round(d.maxGustMph) : ''}</div>
               </div>
             )
           })}
         </div>
-        <p className="muted small">Bar = blended forecast · shaded = likely range (10th–90th percentile)</p>
+        <p className="muted small">Bar = blended forecast · shaded = likely range (10th–90th percentile) · below: high/low °F and <span className="day-gust-key">max gust mph</span></p>
       </section>
 
       <section>
-        <h2 className="section-title">Next 72 hours</h2>
+        <h2 className="section-title">Next 72 hours · snowfall</h2>
         <HourlyChart forecast={forecast} />
+        <p className="muted small chart-legend">
+          <span className="swatch snow" /> snowfall rate (in/hr) <span className="swatch total" /> total so far (in)
+        </p>
+      </section>
+
+      <section>
+        <h2 className="section-title">Next 72 hours · temperature &amp; wind</h2>
+        <WeatherChart forecast={forecast} />
+        <p className="muted small chart-legend">
+          <span className="swatch warm" /> temp (°F) <span className="swatch wind" /> wind <span className="swatch gust" /> gusts (mph)
+        </p>
       </section>
 
       <section>

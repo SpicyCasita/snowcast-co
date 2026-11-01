@@ -10,6 +10,7 @@
   --snow: #3b8eea;
   --snow-soft: rgba(59, 142, 234, 0.22);
   --warm: #e0712c;
+  --wind: #6a7f99;
   --good: #0f9d6b;
   --danger: #c63b3b;
   --tab-h: 64px;
@@ -29,6 +30,7 @@
     --snow: #6cb2ff;
     --snow-soft: rgba(108, 178, 255, 0.22);
     --warm: #f19a5e;
+    --wind: #9fb0c6;
     color-scheme: dark;
   }
 }
@@ -44,6 +46,7 @@
   --snow: #6cb2ff;
   --snow-soft: rgba(108, 178, 255, 0.22);
   --warm: #f19a5e;
+  --wind: #9fb0c6;
   color-scheme: dark;
 }
 
@@ -168,3 +171,52 @@ section { margin-top: 24px; }
 @media (min-width: 560px) {
   .fav-grid { grid-template-columns: 1fr 1fr; }
 }
+
+/* Collapsible location sections */
+.loc-section { margin-top: 24px; }
+.loc-section > summary { display: flex; align-items: center; gap: 8px; cursor: pointer; list-style: none; padding: 4px 0 8px; min-height: 32px; }
+.loc-section > summary::-webkit-details-marker { display: none; }
+.loc-section > summary .section-title { margin: 0; }
+.loc-section > summary::before { content: '›'; display: inline-block; width: 12px; color: var(--text-muted); transition: transform .15s; }
+.loc-section[open] > summary::before { transform: rotate(90deg); }
+
+/* Favorites editing */
+.section-head { display: flex; align-items: baseline; justify-content: space-between; }
+.link-button { background: none; border: 0; color: var(--accent); font-size: 0.9rem; font-weight: 600; padding: 4px 0; cursor: pointer; }
+.fav-edit-row { display: flex; align-items: center; gap: 8px; }
+.fav-edit-name { flex: 1; min-width: 0; }
+.fav-edit-buttons { display: flex; gap: 6px; }
+.fav-edit-buttons button { width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface-2); font-size: 1.05rem; cursor: pointer; }
+.fav-edit-buttons button:disabled { opacity: .35; cursor: default; }
+.fav-edit-buttons button.remove { color: var(--danger); }
+
+/* Confidence */
+.total-conf { font-size: 0.68rem; color: var(--good); font-weight: 600; }
+.total-card-conf { margin-top: 4px; font-size: 0.72rem; font-weight: 600; color: var(--good); }
+.chance-table { border-collapse: collapse; width: 100%; font-size: 0.85rem; }
+.chance-table th, .chance-table td { padding: 8px 6px; text-align: center; }
+.chance-table thead th { color: var(--text-muted); font-weight: 500; border-bottom: 1px solid var(--border); }
+.chance-table tbody th { text-align: left; font-weight: 500; white-space: nowrap; }
+.chance-cell { background: color-mix(in srgb, var(--snow) calc(var(--p) * 55%), transparent); font-variant-numeric: tabular-nums; }
+
+/* Chart legends */
+.chart-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin-top: 6px; }
+.swatch { display: inline-block; width: 14px; height: 3px; border-radius: 2px; margin-left: 6px; vertical-align: middle; }
+.swatch:first-child { margin-left: 0; }
+.swatch.snow { height: 10px; width: 8px; background: var(--snow); }
+.swatch.total { background: var(--accent); }
+.swatch.warm { background: var(--warm); }
+.swatch.wind { background: var(--wind); }
+.swatch.gust { background: repeating-linear-gradient(90deg, var(--wind) 0 4px, transparent 4px 7px); }
+
+/* Daily weather under the snow bars */
+.day-temp { font-size: 0.66rem; line-height: 1.25; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.day-temp.hi { color: var(--warm); margin-top: 2px; }
+.day-temp.lo { color: var(--text-muted); }
+.day-gust, .day-gust-key { font-size: 0.62rem; color: var(--wind); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+.tab-icon { width: 22px; height: 22px; fill: currentColor; margin-bottom: 2px; }
+
+/* Inputs have an intrinsic min width; let them shrink so two fit on a phone. */
+.elev-form label { min-width: 0; }
+.elev-form input { width: 100%; min-width: 0; }

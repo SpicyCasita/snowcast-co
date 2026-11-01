@@ -69,6 +69,7 @@ export const LOCATIONS: SnowLocation[] = [
   town('golden', 'Golden', 39.7555, -105.2211, 5675, 'Front Range'),
   town('evergreen', 'Evergreen', 39.6333, -105.3172, 7220, 'Front Range'),
   town('castle-rock', 'Castle Rock', 39.3722, -104.8561, 6224, 'Front Range'),
+  town('littleton', 'Littleton', 39.6133, -105.0166, 5351, 'Front Range'),
   town('monument', 'Monument', 39.0917, -104.8728, 6975, 'Front Range'),
   town('estes-park', 'Estes Park', 40.3772, -105.5217, 7522, 'Front Range'),
   town('nederland', 'Nederland', 39.9614, -105.5108, 8228, 'Front Range'),

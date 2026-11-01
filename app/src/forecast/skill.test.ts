@@ -81,6 +81,11 @@ describe('skillModel', () => {
     expect(wolfCreekSummit.bias('ecmwf_ifs025', 200)).toBe(1.7)
   })
 
+  it('credits CoCoRaHS gauges in the label when the weights include them', () => {
+    const withGauges = { ...W, meta: { ...W.meta, sources: { observations: { snotel: { sites: 5 }, cocorahs: { sites: 10 } } } } }
+    expect(skillModel(withGauges, 37.47, -106.79, 11900).calibration).toContain('5 SNOTEL sites + 10 CoCoRaHS gauges')
+  })
+
   it('uses the statewide cell outside any band-specific data', () => {
     const denver = skillModel(W, 39.74, -104.99, 5280)
     expect(denver.bias('ecmwf_ifs025', 30)).toBe(1.2)

@@ -1,0 +1,77 @@
+name: verify
+
+on:
+  schedule:
+    # 08:10 UTC = 00:10 PST, so the logged 24 h window matches the SNOTEL obs day.
+    - cron: "10 8 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: verify
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pipeline/requirements.txt
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - run: pip install -r pipeline/requirements.txt
+
+      - run: npm ci
+        working-directory: app
+
+      # Read-only: pipeline.yml owns the cache and saves it after each fetch.
+      - uses: actions/cache/restore@v4
+        with:
+          path: pipeline/data
+          key: pipeline-data-${{ github.run_id }}
+          restore-keys: pipeline-data-
+
+      - name: Export stations for the logger
+        working-directory: pipeline
+        run: python verify.py --export-stations || echo "no stations.parquet yet; logging locations only"
+
+      - name: Log today's forecasts
+        working-directory: app
+        run: npx --yes tsx scripts/log-forecasts.ts
+
+      - name: Walk-forward backtest
+        working-directory: pipeline
+        run: |
+          if [ -f data/forecasts.parquet ]; then python backtest.py; else echo "no archived forecasts yet"; fi
+
+      - name: Score logged forecasts
+        working-directory: pipeline
+        run: python verify.py
+
+      # Pushes made with GITHUB_TOKEN don't trigger workflows, hence the explicit dispatch.
+      - name: Publish verification.json
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/public/data/verification.json app/public/data/forecast-log*
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "data: log forecasts and update verification.json"
+          git pull --rebase
+          git push
+          gh workflow run deploy.yml --ref ${{ github.ref_name }}

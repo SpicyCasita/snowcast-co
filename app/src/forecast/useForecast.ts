@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { blend, type BlendedForecast } from './blend'
 import { alignNwsSnow, fetchNwsSnow } from './nws'
+import { fetchEnsemble, parseEnsemble } from './ensemble'
 import { fetchOpenMeteo } from './openMeteo'
 import { loadSkillWeights, skillModel } from './skill'
 
@@ -15,8 +16,14 @@ export function getForecast(lat: number, lon: number, elevationFt: number): Prom
   const key = `${lat.toFixed(3)},${lon.toFixed(3)},${Math.round(elevationFt)}`
   const hit = cache.get(key)
   if (hit && Date.now() - hit.at < TTL_MS) return hit.promise
-  const promise = Promise.all([fetchOpenMeteo(lat, lon, elevationFt), fetchNwsSnow(lat, lon), loadSkillWeights()]).then(([raw, nws, weights]) => {
+  const promise = Promise.all([
+    fetchOpenMeteo(lat, lon, elevationFt),
+    fetchNwsSnow(lat, lon),
+    fetchEnsemble(lat, lon, elevationFt),
+    loadSkillWeights(),
+  ]).then(([raw, nws, ens, weights]) => {
     if (nws) raw.models.push({ model: 'nws', ...alignNwsSnow(nws, raw.times) })
+    if (ens) raw.ensemble = parseEnsemble(ens.hourly, ens.times, raw.times)
     return blend(raw, weights ? skillModel(weights, lat, lon, elevationFt) : {})
   })
   promise.catch(() => cache.delete(key))

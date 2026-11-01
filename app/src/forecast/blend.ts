@@ -1,9 +1,21 @@
-import type { ModelId, RawForecast } from './types'
+import type { EnsembleSeries, ModelId, ModelSeries, RawForecast } from './types'
+
+/** Snow amounts (inches) whose chance of being reached is reported. */
+export const CHANCE_THRESHOLDS = [1, 3, 6, 12] as const
+
+/** Buckets for the headline confidence: the chance the total lands in the same bucket as the forecast. */
+export const BUCKETS: [number, number | null][] = [[0, 1], [1, 3], [3, 6], [6, 12], [12, null]]
 
 export interface Range {
   expected: number
   low: number
   high: number
+  /** Ensemble-based extras; absent when the ensemble couldn't be loaded. */
+  confidence?: number
+  bucket?: [number, number | null]
+  /** Chance (0–1) of at least N inches, keyed by threshold. */
+  chance?: Record<number, number>
+  ensembleSize?: number
 }
 
 export interface DaySummary {
@@ -15,6 +27,8 @@ export interface DaySummary {
   snowLevelFt: number | null
   hiF: number | null
   loF: number | null
+  maxWindMph: number | null
+  maxGustMph: number | null
 }
 
 export interface BlendedForecast {
@@ -24,6 +38,8 @@ export interface BlendedForecast {
   members: ModelId[]
   hourlySnowIn: number[]
   hourlyTempF: (number | null)[]
+  hourlyWindMph: (number | null)[]
+  hourlyGustMph: (number | null)[]
   days: DaySummary[]
   next24: Range
   next72: Range
@@ -108,6 +124,38 @@ export function weightedQuantile(values: number[], weights: number[], q: number)
   return mids[mids.length - 1][1]
 }
 
+/** Running total of an hourly series. */
+export function cumulative(xs: number[]): number[] {
+  let s = 0
+  return xs.map(x => (s += x))
+}
+
+export const bucketOf = (x: number): [number, number | null] =>
+  BUCKETS.find(([lo, hi]) => x >= lo && (hi == null || x < hi)) ?? BUCKETS[BUCKETS.length - 1]
+
+/**
+ * Spread, chance of each amount and confidence from ensemble member totals for one window.
+ * The deterministic blend sets the amount (`expected`); the ensemble supplies the shape of the
+ * uncertainty, re-centred so its median sits on `expected`.
+ */
+export function ensembleStats(expected: number, totals: number[]): Required<Pick<Range, 'low' | 'high' | 'confidence' | 'bucket' | 'chance' | 'ensembleSize'>> {
+  const sorted = totals.slice().sort((x, y) => x - y)
+  const ones = sorted.map(() => 1)
+  const median = weightedQuantile(sorted, ones, 0.5)
+  // Scale when the ensemble has a real signal; otherwise shift (scaling ~0 would explode).
+  const adjusted = median >= 0.1
+    ? sorted.map(v => v * (expected / median))
+    : sorted.map(v => Math.max(0, v + expected - median))
+  const low = Math.min(expected, weightedQuantile(adjusted, ones, 0.1))
+  const high = Math.max(expected, weightedQuantile(adjusted, ones, 0.9))
+  const share = (pred: (v: number) => boolean) => adjusted.filter(pred).length / adjusted.length
+  const chance: Record<number, number> = {}
+  for (const t of CHANCE_THRESHOLDS) chance[t] = share(v => v >= t)
+  const bucket = bucketOf(expected)
+  const [lo, hi] = bucket
+  return { low: Math.max(0, low), high, confidence: share(v => v >= lo && (hi == null || v < hi)), bucket, chance, ensembleSize: adjusted.length }
+}
+
 const denverDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Denver', year: 'numeric', month: '2-digit', day: '2-digit' })
 export const localDate = (unixSec: number) => denverDate.format(new Date(unixSec * 1000))
 
@@ -122,13 +170,23 @@ export function memberSnow(raw: RawForecast, bias: BiasFn = () => 1): Map<ModelI
       out.set(m.model, m.rawSnowIn)
       continue
     }
-    out.set(m.model, m.precipIn.map((p, i) => {
-      const t = m.tempF[i]
-      if (p == null || t == null) return null
-      return p * bias(m.model, i - raw.nowIndex) * snowFraction(t) * snowToLiquidRatio(t)
-    }))
+    out.set(m.model, toSnow(m, raw.nowIndex, bias))
   }
   return out
+}
+
+function toSnow(s: Pick<ModelSeries, 'precipIn' | 'tempF'>, nowIndex: number, bias: BiasFn, model?: ModelId): (number | null)[] {
+  const id = model ?? (s as ModelSeries).model
+  return s.precipIn.map((p, i) => {
+    const t = s.tempF[i]
+    if (p == null || t == null) return null
+    return p * bias(id, i - nowIndex) * snowFraction(t) * snowToLiquidRatio(t)
+  })
+}
+
+/** Hourly snow per ensemble member, with the bias of its parent deterministic model. */
+export function ensembleSnow(members: EnsembleSeries[], nowIndex: number, bias: BiasFn = () => 1): (number | null)[][] {
+  return members.map(m => toSnow(m, nowIndex, bias, m.family))
 }
 
 export function blend(raw: RawForecast, { weight = defaultWeight, bias, calibration = 'Default weights' }: BlendOptions = {}): BlendedForecast {
@@ -150,11 +208,12 @@ export function blend(raw: RawForecast, { weight = defaultWeight, bias, calibrat
     return den > 0 ? num / den : 0
   })
 
-  const hourlyTempF = times.map((_, i) => {
+  /** Skill-weighted hourly average of a weather field across the deterministic models. */
+  const weighted = (field: (m: ModelSeries) => (number | null)[] | undefined) => times.map((_, i) => {
     let num = 0
     let den = 0
     for (const m of raw.models) {
-      const v = m.tempF[i]
+      const v = field(m)?.[i]
       const w = weight(m.model, leadH(i))
       if (v == null || w <= 0) continue
       num += w * v
@@ -162,10 +221,30 @@ export function blend(raw: RawForecast, { weight = defaultWeight, bias, calibrat
     }
     return den > 0 ? num / den : null
   })
+  const hourlyTempF = weighted(m => m.tempF)
+  const hourlyWindMph = weighted(m => m.windMph)
+  const hourlyGustMph = weighted(m => m.gustMph)
 
-  /** Expected total plus a spread from each member's total (gaps filled with the blend). */
+  const ens = raw.ensemble?.length ? ensembleSnow(raw.ensemble, nowIndex, bias) : null
+
+  /** Expected total plus a spread: from the ensemble when available, else from the models' totals. */
   const windowRange = (a: number, b: number): Range => {
     const expected = sum(hourlySnowIn, a, b)
+    if (ens) {
+      // Only members that cover the whole window, so short-range gaps don't bias totals low.
+      const totals: number[] = []
+      for (const series of ens) {
+        let total = 0
+        let ok = true
+        for (let i = a; i < b && ok; i++) {
+          const v = series[i]
+          if (v == null) ok = false
+          else total += v
+        }
+        if (ok) totals.push(total)
+      }
+      if (totals.length >= 10) return { expected, ...ensembleStats(expected, totals) }
+    }
     const vals: number[] = []
     const ws: number[] = []
     for (const [model, series] of snow) {
@@ -224,7 +303,10 @@ export function blend(raw: RawForecast, { weight = defaultWeight, bias, calibrat
         snowLevelFt = snowLevelFt == null ? sl : Math.min(snowLevelFt, sl)
       }
     }
-    const temps = idx.map(i => hourlyTempF[i]).filter((t): t is number => t != null)
+    const pick = (xs: (number | null)[]) => idx.map(i => xs[i]).filter((t): t is number => t != null)
+    const temps = pick(hourlyTempF)
+    const winds = pick(hourlyWindMph)
+    const gusts = pick(hourlyGustMph)
     days.push({
       date,
       snow: windowRange(a, b),
@@ -232,6 +314,8 @@ export function blend(raw: RawForecast, { weight = defaultWeight, bias, calibrat
       snowLevelFt,
       hiF: temps.length ? Math.max(...temps) : null,
       loF: temps.length ? Math.min(...temps) : null,
+      maxWindMph: winds.length ? Math.max(...winds) : null,
+      maxGustMph: gusts.length ? Math.max(...gusts) : null,
     })
   }
 
@@ -243,6 +327,8 @@ export function blend(raw: RawForecast, { weight = defaultWeight, bias, calibrat
     members,
     hourlySnowIn,
     hourlyTempF,
+    hourlyWindMph,
+    hourlyGustMph,
     days,
     next24: windowRange(nowIndex, end(24)),
     next72: windowRange(nowIndex, end(72)),

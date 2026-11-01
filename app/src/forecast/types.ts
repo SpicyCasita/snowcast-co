@@ -26,6 +26,17 @@ export interface ModelSeries {
   /** Model's own snowfall (inches). For NWS this is the only field populated. */
   rawSnowIn: (number | null)[]
   freezingLevelFt: (number | null)[]
+  /** Optional so older callers and tests can omit them. */
+  windMph?: (number | null)[]
+  gustMph?: (number | null)[]
+}
+
+/** One ensemble member (GEFS or ECMWF ENS), aligned to `times`. */
+export interface EnsembleSeries {
+  /** The deterministic model whose bias correction applies to this member. */
+  family: ModelId
+  precipIn: (number | null)[]
+  tempF: (number | null)[]
 }
 
 export interface RawForecast {
@@ -35,4 +46,5 @@ export interface RawForecast {
   nowIndex: number
   elevationFt: number
   models: ModelSeries[]
+  ensemble?: EnsembleSeries[] | null
 }

@@ -1,0 +1,23 @@
+name = "snowcast-alerts"
+main = "src/index.ts"
+compatibility_date = "2026-10-01"
+workers_dev = true
+
+[triggers]
+# Every 5 minutes, one favorite point per run (see RUN_EVERY_MIN in src/index.ts).
+crons = ["*/5 * * * *"]
+
+# `npx wrangler kv namespace create SUBS`, then paste the id here.
+[[kv_namespaces]]
+binding = "SUBS"
+id = "8cef1ccccad64cb1a7c939c7b8440804"
+
+[vars]
+# Public half of the VAPID pair from `npm run vapid-keys`. The private half is a secret:
+# `npx wrangler secret put VAPID_PRIVATE_KEY`.
+VAPID_PUBLIC_KEY = "BGmhQAaGCpPDgJx2pS99seDgLoQM6Ge1mezetn7QYbc5CK6geRcYv89zXYPDVz525eNk-yUg-lCAnya9vYSQuuU"
+VAPID_SUBJECT = "https://spicycasita.github.io/snowcast-co/"
+ALLOWED_ORIGINS = "https://spicycasita.github.io,http://localhost:5173,http://localhost:4173"
+
+[observability]
+enabled = true

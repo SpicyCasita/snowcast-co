@@ -24,7 +24,9 @@ export interface SkillWeights {
   meta: {
     aliases?: Partial<Record<ModelId, Record<string, ModelId>>>
     dateRange?: [string, string]
+    /** SNOTEL sites only. */
     sites?: number
+    sources?: { observations?: Record<string, { sites?: number }> }
   }
   /** weights[region][band][leadDay][model]; "ALL" holds the pooled fallbacks. */
   weights: Record<string, Record<string, Record<string, Cell>>>
@@ -36,9 +38,12 @@ const MAX_LEAD_DAY = 7
 
 let pending: Promise<SkillWeights | null> | null = null
 
-/** weights.json is committed to app/public/data by the pipeline. Missing or broken → null, and the app uses its heuristics. */
-export function loadSkillWeights(): Promise<SkillWeights | null> {
-  pending ??= fetch(`${import.meta.env.BASE_URL}data/weights.json`)
+/**
+ * weights.json is committed to app/public/data by the pipeline. Missing or broken → null, and the app uses
+ * its heuristics. Pass `url` from non-Vite callers (the alerts Worker, Node scripts).
+ */
+export function loadSkillWeights(url?: string): Promise<SkillWeights | null> {
+  pending ??= fetch(url ?? `${import.meta.env.BASE_URL}data/weights.json`)
     .then(r => (r.ok ? r.json() : null))
     .then(j => (j?.version === 1 && j.weights ? (j as SkillWeights) : null))
     .catch(() => null)
@@ -120,7 +125,8 @@ export function skillModel(w: SkillWeights, lat: number, lon: number, elevationF
     return s && s.mae <= s.maeRaw ? s.bias : 1
   }
 
-  const sites = w.meta.sites ? `${w.meta.sites} SNOTEL sites` : 'SNOTEL'
+  const cocorahs = w.meta.sources?.observations?.cocorahs?.sites
+  const sites = (w.meta.sites ? `${w.meta.sites} SNOTEL sites` : 'SNOTEL') + (cocorahs ? ` + ${cocorahs} CoCoRaHS gauges` : '')
   const range = w.meta.dateRange ? `, ${w.meta.dateRange[0].slice(0, 7)} to ${w.meta.dateRange[1].slice(0, 7)}` : ''
   const calibration = cells.size
     ? `Weights tuned on ${sites}${range} (${[...used].join('; ')})`

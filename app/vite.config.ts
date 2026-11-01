@@ -10,6 +10,12 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      // Custom service worker so it can show push alerts; runtime caching lives in src/sw.ts.
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
+      // Off by default so dev reloads aren't served from a cache; `SW_DEV=1 npm run dev` to test push locally.
+      devOptions: { enabled: process.env.SW_DEV === '1', type: 'module', navigateFallback: 'index.html' },
       includeAssets: ['apple-touch-icon.png', 'favicon-32.png'],
       manifest: {
         name: 'SnowCast CO',
@@ -23,22 +29,9 @@ export default defineConfig({
           { src: 'icon-512.png', sizes: '512x512', type: 'image/png' },
         ],
       },
-      workbox: {
+      injectManifest: {
         globPatterns: ['**/*.{js,css,html,png}'],
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
-        runtimeCaching: [
-          {
-            // Show the last forecast when offline (e.g. on the lift with no signal).
-            urlPattern: /^https:\/\/(api\.open-meteo\.com|api\.weather\.gov)\//,
-            handler: 'NetworkFirst',
-            options: { cacheName: 'forecasts', networkTimeoutSeconds: 8, expiration: { maxEntries: 200, maxAgeSeconds: 6 * 3600 } },
-          },
-          {
-            urlPattern: /^https:\/\/tiles\.openfreemap\.org\//,
-            handler: 'CacheFirst',
-            options: { cacheName: 'map-tiles', expiration: { maxEntries: 1500, maxAgeSeconds: 30 * 24 * 3600 } },
-          },
-        ],
       },
     }),
   ],

@@ -10,7 +10,7 @@ export const OPEN_METEO_MODELS: ModelId[] = [
   'icon_seamless',
 ]
 
-const HOURLY = ['precipitation', 'snowfall', 'temperature_2m', 'freezing_level_height']
+const HOURLY = ['precipitation', 'snowfall', 'temperature_2m', 'freezing_level_height', 'wind_speed_10m', 'wind_gusts_10m']
 
 type Num = number | null
 
@@ -32,6 +32,7 @@ export async function fetchOpenMeteo(lat: number, lon: number, elevationFt: numb
     timeformat: 'unixtime',
     precipitation_unit: 'inch',
     temperature_unit: 'fahrenheit',
+    wind_speed_unit: 'mph',
   })
   const res = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`, { signal })
   if (!res.ok) throw new Error(`Open-Meteo ${res.status}: ${await res.text()}`)
@@ -46,6 +47,8 @@ export async function fetchOpenMeteo(lat: number, lon: number, elevationFt: numb
     rawSnowIn: h[`snowfall_${model}`] ?? times.map(() => null),
     // Open-Meteo returns freezing level in feet when imperial precip units are requested.
     freezingLevelFt: h[`freezing_level_height_${model}`] ?? times.map(() => null),
+    windMph: h[`wind_speed_10m_${model}`] ?? times.map(() => null),
+    gustMph: h[`wind_gusts_10m_${model}`] ?? times.map(() => null),
   })).filter(m => m.precipIn.some(v => v != null))
 
   const nowSec = Date.now() / 1000
