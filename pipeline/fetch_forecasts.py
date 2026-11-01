@@ -47,8 +47,8 @@ MAX_WEIGHT_PER_MIN = 400
 CACHE_DIR = CACHE / "forecasts"
 
 
-class DailyLimitReached(Exception):
-    pass
+class StopFetching(Exception):
+    """Stop downloading for this run (budget used, API limit hit, or API unavailable); the cache is still used."""
 
 
 def hourly_vars() -> list[str]:
@@ -89,7 +89,7 @@ class Fetcher:
 
     def get(self, params: dict, weight: float) -> dict:
         if self.spent + weight > self.budget:
-            raise DailyLimitReached(f"budget of {self.budget:.0f} calls used")
+            raise StopFetching(f"budget of {self.budget:.0f} calls used")
         for attempt in range(6):
             self._pace(weight)
             try:
@@ -100,8 +100,9 @@ class Fetcher:
                 continue
             if r.status_code == 429:
                 reason = r.text.lower()
-                if "daily" in reason:
-                    raise DailyLimitReached(r.text)
+                # Waiting out an hourly or daily limit isn't worth the runner time; resume next run.
+                if "daily" in reason or "hourly" in reason:
+                    raise StopFetching(r.text)
                 print("    rate limited; sleeping 60s")
                 time.sleep(60)
                 continue
@@ -113,7 +114,7 @@ class Fetcher:
             r.raise_for_status()
             self.spent += weight
             return r.json()
-        raise RuntimeError("Open-Meteo request kept failing")
+        raise StopFetching("Open-Meteo request kept failing")
 
 
 def cache_path(site: str, month_start: dt.date):
@@ -216,7 +217,7 @@ def main() -> None:
     for i, (st, a, b) in enumerate(jobs, 1):
         try:
             data = load_or_fetch(fetcher, st, a, b, today)
-        except DailyLimitReached as e:
+        except StopFetching as e:
             stopped = str(e)
             break
         frames.append(parse_response(data, st.site))

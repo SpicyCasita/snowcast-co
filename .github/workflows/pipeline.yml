@@ -3,6 +3,7 @@ name: pipeline
 on:
   schedule:
     - cron: "30 10 * * *" # nightly 03:30 MST: SNOTEL obs + forecast backfill
+    - cron: "30 22 * * *" # 15:30 MST: second backfill pass, using the rest of the daily API allowance
     - cron: "0 12 * * 0" # Sundays: refit bias/skill weights and publish
   workflow_dispatch:
     inputs:
@@ -52,8 +53,9 @@ jobs:
         run: python fetch_snotel.py
 
       - name: Fetch archived model forecasts
-        # stays under the 10k/day free-tier limit; newest months are fetched first
-        run: python fetch_forecasts.py --sites all --budget 8000
+        # Open-Meteo's free tier allows 5k calls/hour and 10k/day, so two runs a day of
+        # 4.5k each. Newest months are fetched first; a rate limit stops downloads cleanly.
+        run: python fetch_forecasts.py --sites all --budget 4500
 
       - uses: actions/cache/save@v4
         if: always()
