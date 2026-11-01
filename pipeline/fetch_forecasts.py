@@ -113,7 +113,12 @@ class Fetcher:
                 raise ValueError(f"Open-Meteo 400: {r.text}")
             r.raise_for_status()
             self.spent += weight
-            return r.json()
+            try:
+                return r.json()
+            except ValueError:
+                # Occasionally a 200 arrives with an empty or truncated body.
+                print("    unreadable response; retrying")
+                time.sleep(5 * (attempt + 1))
         raise StopFetching("Open-Meteo request kept failing")
 
 

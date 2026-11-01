@@ -9,11 +9,14 @@ from fetch_forecasts import Fetcher, StopFetching  # noqa: E402
 
 
 class FakeResponse:
-    def __init__(self, status: int, text: str = ""):
+    def __init__(self, status: int, text: str = "", body_ok: bool = True):
         self.status_code = status
         self.text = text
+        self.body_ok = body_ok
 
     def json(self):
+        if not self.body_ok:
+            raise ValueError("Expecting value: line 1 column 1 (char 0)")
         return {}
 
     def raise_for_status(self):
@@ -55,6 +58,17 @@ def test_transient_limit_then_success():
     f = fetcher_with([FakeResponse(429, "Minutely API request limit exceeded"), FakeResponse(200)])
     assert f.get({}, 1) == {}
     assert f.spent == 1
+
+
+def test_empty_body_is_retried():
+    f = fetcher_with([FakeResponse(200, body_ok=False), FakeResponse(200)])
+    assert f.get({}, 1) == {}
+
+
+def test_persistently_empty_body_stops_instead_of_crashing():
+    f = fetcher_with([FakeResponse(200, body_ok=False)] * 6)
+    with pytest.raises(StopFetching, match="kept failing"):
+        f.get({}, 1)
 
 
 def test_budget_stops_before_calling():
