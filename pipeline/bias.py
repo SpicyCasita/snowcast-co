@@ -50,6 +50,30 @@ def load_pairs() -> pd.DataFrame:
     return df.loc[keep, ["site", "date", "region", "band", "model", "lead_day", "precip_mm", "obs_mm"]]
 
 
+def explain_empty() -> None:
+    """Print what each input holds and how many rows each join/filter step keeps."""
+    obs = pd.read_parquet(SNOTEL_PARQUET, columns=["site", "date", "dswe_in", "tavg_f"])
+    fc = pd.read_parquet(FORECASTS_PARQUET, columns=["site", "date", "model", "lead_day", "precip_mm"])
+    st = pd.read_parquet(STATIONS_PARQUET, columns=["site", "region", "band"])
+    for name, df in (("obs", obs), ("forecasts", fc), ("stations", st)):
+        span = f"{df.date.min()} .. {df.date.max()}" if "date" in df else ""
+        print(f"{name}: {len(df):,} rows, {df.site.nunique()} sites ({df.site.dtype}, e.g. {df.site.iloc[:3].tolist()}) {span}")
+    print(f"date dtypes: obs {obs.date.dtype}, forecasts {fc.date.dtype}")
+    df = fc.merge(obs, on=["site", "date"])
+    print(f"forecasts x obs: {len(df):,}")
+    df = df.merge(st, on="site")
+    print(f"  x stations: {len(df):,}")
+    obs_mm = df.dswe_in.clip(lower=0) * 25.4
+    for label, mask in (
+        ("season months", df.date.dt.month.isin(SEASON_MONTHS)),
+        (f"tavg <= {MAX_TAVG_F}F", df.tavg_f <= MAX_TAVG_F),
+        ("obs present", obs_mm.notna()),
+        ("precip present", df.precip_mm.notna()),
+        ("wet day", (obs_mm >= WET_MM) | (df.precip_mm >= WET_MM)),
+    ):
+        print(f"  passing {label}: {int(mask.sum()):,}")
+
+
 def find_aliases(pairs: pd.DataFrame) -> dict[str, dict[str, str]]:
     """Detect model series that are byte-identical copies of another model.
 
@@ -134,6 +158,7 @@ def main() -> None:
 
     pairs = load_pairs()
     if pairs.empty:
+        explain_empty()
         raise SystemExit("no overlapping forecast/observation pairs")
     aliases = find_aliases(pairs)
     pairs = drop_aliases(pairs, aliases)
