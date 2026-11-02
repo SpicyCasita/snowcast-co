@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { LOCATIONS_BY_ID, type SnowLocation } from './data/locations'
 import type { PastLocation, PastSnowfall } from './past'
 import { cleanWindows, depthGain, type Reading } from './recent'
-import { spicyForced, spicyHits } from './spicy'
+import { createShakeDetector, globeParams } from './globe'
+import { spicyForced, spicyHits, tapCounter } from './spicy'
 import { stormHits } from './storm'
 import { nextTheme } from './theme'
 
@@ -20,8 +21,8 @@ const past = (m: Record<string, number | null>): PastSnowfall => ({
 })
 
 describe('Spicy Casita Special trigger', () => {
-  it('fires for more than 12" in 24h, not exactly 12"', () => {
-    expect(spicyHits([wolf, vail], past({ 'wolf-creek': 12.5, vail: 12 }), new Map())).toEqual([{ id: 'wolf-creek', name: 'Wolf Creek', inches: 12.5 }])
+  it('fires at 12.0" or more, not just under', () => {
+    expect(spicyHits([wolf, vail], past({ 'wolf-creek': 12, vail: 11.9 }), new Map())).toEqual([{ id: 'wolf-creek', name: 'Wolf Creek', inches: 12 }])
   })
 
   it('uses the live reading when it is higher than the morning file', () => {
@@ -90,5 +91,52 @@ describe('theme toggle', () => {
     expect(nextTheme('system')).toBe('light')
     expect(nextTheme('light')).toBe('dark')
     expect(nextTheme('dark')).toBe('system')
+  })
+})
+
+describe('secret five-tap summon', () => {
+  it('fires on the 5th tap within 2 seconds, then starts over', () => {
+    const tap = tapCounter()
+    expect([0, 300, 600, 900].map(tap)).toEqual([false, false, false, false])
+    expect(tap(1200)).toBe(true)
+    expect(tap(1300)).toBe(false)
+  })
+  it('ignores taps spread out over more than 2 seconds', () => {
+    const tap = tapCounter()
+    expect([0, 600, 1200, 1800, 2400].map(tap)).toEqual([false, false, false, false, false])
+    expect(tap(2700)).toBe(false) // only 1200..2700 are inside the window
+    expect(tap(2800)).toBe(true) // 1200, 1800, 2400, 2700, 2800
+  })
+})
+
+describe('snow globe', () => {
+  it('scales flakes and float time with the forecast, capped', () => {
+    expect(globeParams(0)).toEqual({ count: 70, floatSeconds: 4 })
+    const big = globeParams(24)
+    expect(big.count).toBeGreaterThan(globeParams(6).count)
+    expect(big.floatSeconds).toBeGreaterThan(globeParams(6).floatSeconds)
+    expect(globeParams(100)).toEqual(globeParams(36))
+  })
+
+  it('detects a shake from two sharp jolts, with direction, and ignores gentle motion', () => {
+    const shakes: [number, number][] = []
+    const feed = createShakeDetector((dir, power) => shakes.push([dir, power]))
+    const still = { x: 0, y: 9.8, z: 0 }
+    feed(still, 0)
+    feed({ x: 1, y: 9.6, z: 0.5 }, 50) // walking around: nothing
+    expect(shakes).toHaveLength(0)
+    feed({ x: 22, y: 9.8, z: 0 }, 100)
+    feed({ x: -2, y: 9.8, z: 0 }, 180)
+    feed({ x: 24, y: 9.8, z: 0 }, 260)
+    expect(shakes).toHaveLength(1)
+    expect(shakes[0][0]).toBe(1)
+    expect(shakes[0][1]).toBeGreaterThanOrEqual(0.5)
+  })
+
+  it('has a cooldown so one shake is one burst', () => {
+    let n = 0
+    const feed = createShakeDetector(() => n++)
+    ;[[0, 0], [20, 100], [0, 200], [20, 300], [0, 400]].forEach(([x, t]) => feed({ x, y: 9.8, z: 0 }, t))
+    expect(n).toBe(1)
   })
 })

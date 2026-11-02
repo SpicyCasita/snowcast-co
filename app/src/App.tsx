@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { Backdrop } from './components/Backdrop'
+import { SnowGlobe } from './components/SnowGlobe'
 import { SpicySpecial } from './components/SpicySpecial'
 import { BellIcon, ChartIcon, MapIcon, PastIcon, SnowflakeIcon } from './components/Icons'
 import { LOCATIONS_BY_ID, type SnowLocation } from './data/locations'
@@ -73,17 +74,18 @@ export default function App() {
     : 'home'
   const loading = <div className="loading">Loading…</div>
   const storm = useStorm(favoriteLocations(favorites))
-  const [spicy, closeSpicy] = useSpicy(favoriteLocations(favorites))
+  const spicy = useSpicy(favoriteLocations(favorites))
 
   return (
     <div className="app">
-      <Backdrop storm={storm.length > 0} />
-      {spicy.length > 0 && <SpicySpecial hits={spicy} onClose={closeSpicy} />}
+      <Backdrop storm={storm.hits.length > 0} />
+      <SnowGlobe forecastIn={storm.peak72} />
+      {spicy.hits.length > 0 && <SpicySpecial hits={spicy.hits} summoned={spicy.summoned} onClose={spicy.dismiss} />}
       <main>
         {route.name === 'home' && (
           <Home
             favorites={favorites}
-            storm={storm}
+            storm={storm.hits}
             onMoveFavorite={(from, to) => updateFavorites(moveItem(favorites, from, to))}
             onRemoveFavorite={id => updateFavorites(favorites.filter(f => f !== id))}
           />

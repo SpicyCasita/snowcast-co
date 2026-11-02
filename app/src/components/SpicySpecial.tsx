@@ -100,7 +100,7 @@ function PepperScene() {
 }
 
 /** Full-screen celebration when a favorite gets more than a foot in 24 hours. */
-export function SpicySpecial({ hits, onClose }: { hits: SpicyHit[]; onClose: () => void }) {
+export function SpicySpecial({ hits, summoned = false, onClose }: { hits: SpicyHit[]; summoned?: boolean; onClose: () => void }) {
   const button = useRef<HTMLButtonElement>(null)
   useEffect(() => {
     button.current?.focus()
@@ -132,13 +132,20 @@ export function SpicySpecial({ hits, onClose }: { hits: SpicyHit[]; onClose: () 
           ))}
         </h1>
         <PepperScene />
-        <p className="spicy-dump">
-          <b>{top.name}</b> just got <b className="spicy-inches">{Math.round(top.inches)}"</b> in 24 hours
-          {hits.length > 1 && <> (and {hits.slice(1).map(h => `${h.name} ${Math.round(h.inches)}"`).join(', ')})</>}
-        </p>
+        {summoned ? (
+          <p className="spicy-dump">
+            🤫 Secret menu unlocked. <b>{top.name}</b> got <b className="spicy-inches">{Math.round(top.inches)}"</b> in 24 hours.
+            <br />Not a foot yet, but this pepper can dream.
+          </p>
+        ) : (
+          <p className="spicy-dump">
+            <b>{top.name}</b> just got <b className="spicy-inches">{Math.round(top.inches)}"</b> in 24 hours
+            {hits.length > 1 && <> (and {hits.slice(1).map(h => `${h.name} ${Math.round(h.inches)}"`).join(', ')})</>}
+          </p>
+        )}
         <ul className="spicy-report">
           <li><span>Conditions</span><b>HOT 🔥</b></li>
-          <li><span>Snow</span><b>BOTTOMLESS ❄️</b></li>
+          <li><span>Snow</span><b>{summoned && top.inches < 12 ? 'IMAGINARY ❄️' : 'BOTTOMLESS ❄️'}</b></li>
           <li><span>Vibes</span><b>IMMACULATE 🌶️</b></li>
         </ul>
         <button ref={button} className="spicy-go" onClick={onClose}>SEND IT 🤙</button>

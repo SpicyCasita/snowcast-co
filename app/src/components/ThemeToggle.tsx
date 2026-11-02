@@ -40,7 +40,6 @@ export function ThemeToggle() {
       title={`Theme: ${LABEL[mode]}`}
     >
       {icon(mode)}
-      <span>{LABEL[mode]}</span>
     </button>
   )
 }

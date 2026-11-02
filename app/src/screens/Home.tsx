@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { LOCATIONS, LOCATIONS_BY_ID, type LocationKind, type SnowLocation } from '../data/locations'
 import { LogoMark, SnowflakeIcon } from '../components/Icons'
+import { GlobeButton } from '../components/GlobeButton'
 import { ThemeToggle } from '../components/ThemeToggle'
 import { useForecast } from '../forecast/useForecast'
 import { confidenceLabel, feet, inches, range } from '../format'
@@ -101,6 +102,7 @@ export function Home({ favorites, storm = [], onMoveFavorite, onRemoveFavorite }
         <div className="brand">
           <LogoMark />
           <h1>SnowCast <span className="accent">CO</span></h1>
+          <GlobeButton />
           <ThemeToggle />
         </div>
         <p className="muted small">6 weather models + NWS, blended and tuned for Colorado snow</p>

@@ -193,6 +193,7 @@ section { margin-top: 26px; }
 .app-header { display: flex; flex-direction: column; gap: 6px; }
 .app-header p { margin: 0; }
 .brand { display: flex; align-items: center; gap: 10px; }
+.brand h1 { white-space: nowrap; }
 .brand svg { width: 34px; height: 34px; filter: drop-shadow(0 4px 10px rgba(40, 120, 240, 0.35)); flex: none; }
 
 /* ── Glass surfaces ───────────────────────────────────────────────────────── */
@@ -510,8 +511,8 @@ a.fav-card::after {
 
 /* Theme button (Home header) */
 .theme-toggle {
-  margin-left: auto; display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px 0 10px;
-  border-radius: 999px; cursor: pointer; font-size: 0.75rem; font-weight: 650; color: var(--text);
+  margin-left: auto; display: grid; place-items: center; width: 36px; height: 36px; padding: 0; flex: none;
+  border-radius: 50%; cursor: pointer; color: var(--text);
   background: linear-gradient(180deg, var(--sheen), transparent 45%), var(--glass);
   border: 1px solid var(--glass-edge); box-shadow: inset 0 1px 0 var(--glass-rim), var(--shadow);
   -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur);
@@ -664,3 +665,23 @@ a.fav-card::after {
 .spicy-go:active { transform: translateY(4px); box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.7), 0 2px 0 #b34700; }
 @keyframes go-pulse { 50% { transform: scale(1.03); } }
 .spicy-fine { margin: 10px 0 0; font-size: 0.7rem; opacity: 0.75; }
+
+/* ── Snow globe ───────────────────────────────────────────────────────────── */
+.snow-globe { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 40; pointer-events: none; }
+.globe-wrap { position: relative; margin-left: auto; display: inline-flex; }
+.globe-wrap + .theme-toggle { margin-left: 8px; }
+.globe-button {
+  display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; color: var(--accent);
+  background: linear-gradient(180deg, var(--sheen), transparent 45%), var(--glass);
+  border: 1px solid var(--glass-edge); box-shadow: inset 0 1px 0 var(--glass-rim), var(--shadow);
+  -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur);
+  transition: transform 0.15s var(--ease);
+}
+.globe-button svg { width: 19px; height: 19px; }
+.globe-button:active { transform: scale(0.9) rotate(-12deg); }
+.globe-hint {
+  position: absolute; top: calc(100% + 8px); right: -40px; z-index: 20; white-space: nowrap;
+  padding: 6px 10px; border-radius: 10px; font-size: 0.75rem; font-weight: 600; color: var(--text);
+  background: var(--glass-strong); border: 1px solid var(--glass-edge); box-shadow: var(--shadow);
+  animation: rise 0.3s var(--ease) both;
+}

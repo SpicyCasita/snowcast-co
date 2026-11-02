@@ -17,19 +17,30 @@ export function stormHits(favorites: SnowLocation[], next24: Map<string, number>
     .sort((a, b) => b.inches - a.inches)
 }
 
+export interface StormState {
+  hits: StormHit[]
+  /** Biggest 72-hour forecast among favorites (inches); sizes the snow globe. */
+  peak72: number
+}
+
 /** Uses the same cached forecasts as the favorite cards, so it adds no network calls. */
-export function useStorm(favorites: SnowLocation[]): StormHit[] {
-  const [hits, setHits] = useState<StormHit[]>([])
+export function useStorm(favorites: SnowLocation[]): StormState {
+  const [state, setState] = useState<StormState>({ hits: [], peak72: 0 })
   const key = favorites.map(f => f.id).join(',')
   useEffect(() => {
     let live = true
     Promise.allSettled(favorites.map(f => getForecast(f.lat, f.lon, midElevation(f)))).then(results => {
       const next24 = new Map<string, number>()
-      results.forEach((r, i) => { if (r.status === 'fulfilled') next24.set(favorites[i].id, r.value.next24.expected) })
-      if (live) setHits(stormHits(favorites, next24))
+      let peak72 = 0
+      results.forEach((r, i) => {
+        if (r.status !== 'fulfilled') return
+        next24.set(favorites[i].id, r.value.next24.expected)
+        peak72 = Math.max(peak72, r.value.next72.expected)
+      })
+      if (live) setState({ hits: stormHits(favorites, next24), peak72 })
     })
     return () => { live = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key])
-  return hits
+  return state
 }
