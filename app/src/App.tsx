@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import { Backdrop } from './components/Backdrop'
 import { SnowGlobe } from './components/SnowGlobe'
 import { SpicySpecial } from './components/SpicySpecial'
@@ -16,7 +16,11 @@ const MapView = lazy(() => import('./screens/MapView').then(m => ({ default: m.M
 const Alerts = lazy(() => import('./screens/Alerts').then(m => ({ default: m.Alerts })))
 const Accuracy = lazy(() => import('./screens/Accuracy').then(m => ({ default: m.Accuracy })))
 const PastList = lazy(() => import('./screens/Past').then(m => ({ default: m.PastList })))
+const SendItShow = lazy(() => import('./components/sendit/SendItShow').then(m => ({ default: m.SendItShow })))
 const PastDetail = lazy(() => import('./screens/Past').then(m => ({ default: m.PastDetail })))
+
+/** `?sendit=N` (in the query or the hash) plays SEND IT cartoon N on load, for testing. */
+const forcedSendIt = () => /[?&]sendit=\d+(?!\d)/.test(location.href)
 
 const favoriteLocations = (ids: string[]) => ids.map(id => LOCATIONS_BY_ID.get(id)).filter((l): l is SnowLocation => !!l)
 
@@ -75,12 +79,18 @@ export default function App() {
   const loading = <div className="loading">Loading…</div>
   const storm = useStorm(favoriteLocations(favorites))
   const spicy = useSpicy(favoriteLocations(favorites))
+  // `?sendit=N` plays a SEND IT cartoon straight away, for testing.
+  const [sendIt, setSendIt] = useState(() => forcedSendIt())
+  const endSendIt = useCallback(() => setSendIt(false), [])
 
   return (
     <div className="app">
       <Backdrop storm={storm.hits.length > 0} />
       <SnowGlobe forecastIn={storm.peak72} />
-      {spicy.hits.length > 0 && <SpicySpecial hits={spicy.hits} summoned={spicy.summoned} onClose={spicy.dismiss} />}
+      {spicy.hits.length > 0 && (
+        <SpicySpecial hits={spicy.hits} summoned={spicy.summoned} onClose={spicy.dismiss} onSendIt={() => { spicy.dismiss(); setSendIt(true) }} />
+      )}
+      {sendIt && <Suspense fallback={null}><SendItShow onDone={endSendIt} /></Suspense>}
       <main>
         {route.name === 'home' && (
           <Home

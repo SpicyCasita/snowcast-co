@@ -1,0 +1,367 @@
+/* SEND IT cartoons. Each scene sets --dur; timelines below are percentages of the whole scene.
+   Animated groups draw around (0, 0), so translate() places them and rotate() spins them in place. */
+
+.si { width: 100%; height: 100%; display: block; }
+/* Zero-specificity defaults, so each element's own rules (loops, origins) always win. */
+:where(.si g) { transform-box: view-box; transform-origin: 0 0; }
+:where(.si [class^="s"]) { animation-duration: var(--dur); animation-timing-function: linear; animation-fill-mode: both; }
+.si-twinkle { animation: si-twinkle 1.6s ease-in-out infinite alternate; }
+@keyframes si-twinkle { from { opacity: 0.25; } to { opacity: 1; } }
+
+/* ── 1 · Yard Sale ── */
+.s1-rider { animation-name: s1-rider; }
+@keyframes s1-rider {
+  0% { transform: translate(-80px, 212px) rotate(16deg); }
+  34% { transform: translate(180px, 285px) rotate(16deg); }
+  40% { transform: translate(225px, 215px) rotate(-120deg); }
+  47% { transform: translate(255px, 250px) rotate(-330deg); }
+  54% { transform: translate(265px, 330px) rotate(-520deg) scale(0.85); opacity: 1; }
+  57%, 100% { transform: translate(268px, 360px) rotate(-560deg) scale(0.6); opacity: 0; }
+}
+.s1-board-on { animation-name: s1-board-on; }
+@keyframes s1-board-on { 0%, 37% { opacity: 1; } 38%, 100% { opacity: 0; } }
+.s1-board-fly { animation-name: s1-board-fly; }
+@keyframes s1-board-fly {
+  0%, 37% { opacity: 0; transform: translate(220px, 280px); }
+  38% { opacity: 1; transform: translate(220px, 280px) rotate(0); }
+  50% { transform: translate(320px, 170px) rotate(300deg); }
+  62%, 100% { opacity: 1; transform: translate(355px, 395px) rotate(560deg); }
+}
+.s1-shades-fly { animation-name: s1-shades-fly; }
+@keyframes s1-shades-fly {
+  0%, 38% { opacity: 0; transform: translate(225px, 225px); }
+  39% { opacity: 1; transform: translate(225px, 225px); }
+  52% { transform: translate(110px, 140px) rotate(-260deg); }
+  64%, 100% { opacity: 1; transform: translate(90px, 410px) rotate(-420deg); }
+}
+.s1-poof { animation-name: s1-poof; }
+@keyframes s1-poof {
+  0%, 53% { opacity: 0; transform: translate(270px, 400px) scale(0); }
+  56% { opacity: 1; transform: translate(270px, 395px) scale(1.4); }
+  66%, 100% { opacity: 0; transform: translate(270px, 380px) scale(1.9); }
+}
+.s1-pop { animation-name: s1-pop; }
+@keyframes s1-pop {
+  0%, 60% { transform: translate(265px, 480px); }
+  66% { transform: translate(265px, 345px); }
+  70% { transform: translate(265px, 362px); }
+  74%, 100% { transform: translate(265px, 356px); }
+}
+.s1-dizzy { animation: si-spin 1.4s linear infinite; }
+@keyframes si-spin { to { transform: rotate(360deg); } }
+
+/* ── 2 · Called In Sick ── */
+.s2-sleepy { animation-name: s2-fade-out-45; }
+@keyframes s2-fade-out-45 { 0%, 44% { opacity: 1; } 46%, 100% { opacity: 0; } }
+.s2-blanket { animation-name: s2-blanket; }
+@keyframes s2-blanket {
+  0%, 8%, 16%, 24%, 32%, 40% { transform: translate(0, 0); opacity: 1; }
+  4%, 12%, 20%, 28%, 36%, 44% { transform: translate(0, -4px); opacity: 1; }
+  48%, 100% { transform: translate(-60px, 60px) rotate(-14deg); opacity: 0; }
+}
+.s2-phone { animation-name: s2-phone; }
+@keyframes s2-phone {
+  0%, 24% { opacity: 0; transform: scale(0.2); }
+  26% { opacity: 1; transform: scale(1.3) rotate(-14deg); }
+  28%, 32%, 36%, 40% { transform: scale(1.2) rotate(14deg); }
+  30%, 34%, 38%, 42% { transform: scale(1.2) rotate(-14deg); }
+  44%, 100% { opacity: 0; transform: scale(0.4); }
+}
+.s2-awake { animation-name: s2-awake; }
+@keyframes s2-awake {
+  0%, 45% { opacity: 0; transform: translate(110px, 300px); }
+  47% { opacity: 1; transform: translate(110px, 230px) rotate(-10deg); }
+  52% { transform: translate(110px, 300px); }
+  56% { transform: translate(210px, 170px) rotate(10deg); }
+  60% { opacity: 1; transform: translate(300px, 266px); }
+  61%, 100% { opacity: 0; transform: translate(300px, 266px); }
+}
+.s2-rider { animation-name: s2-rider; }
+@keyframes s2-rider { 0%, 60% { opacity: 0; } 61%, 100% { opacity: 1; } }
+.s2-casita { animation-name: s2-casita; }
+@keyframes s2-casita {
+  0%, 70% { transform: translate(300px, 390px); }
+  73% { transform: translate(312px, 384px); }
+  76% { transform: translate(330px, 390px); }
+  100% { transform: translate(620px, 390px); }
+}
+.s2-puffs { animation-name: s2-puffs; }
+@keyframes s2-puffs {
+  0%, 71% { opacity: 0; }
+  74%, 80%, 86%, 92%, 98% { opacity: 1; }
+  77%, 83%, 89%, 95%, 100% { opacity: 0.2; }
+}
+
+/* ── 3 · Penguin Conga ── */
+.s3-train { animation-name: s3-train; }
+@keyframes s3-train {
+  0% { transform: translate(-40px, 65px); }
+  70%, 100% { transform: translate(300px, 320px); }
+}
+.s3-waddle { animation: s3-waddle 0.45s ease-in-out infinite alternate; }
+@keyframes s3-waddle { from { transform: rotate(-8deg) translate(0, -2px); } to { transform: rotate(8deg) translate(0, 2px); } }
+.s3-last { animation-name: s3-last; }
+@keyframes s3-last {
+  0%, 44% { transform: translate(-192px, -144px); }
+  47% { transform: translate(-200px, -128px) rotate(-90deg); }
+  70% { transform: translate(64px, 48px) rotate(-90deg); }
+  75% { transform: translate(64px, 30px) rotate(0deg); }
+  80%, 100% { transform: translate(64px, 38px) rotate(0deg); }
+}
+.s3-trophy { animation-name: s3-trophy; }
+@keyframes s3-trophy {
+  0%, 73% { opacity: 0; transform: scale(0); }
+  77% { opacity: 1; transform: scale(1.4) rotate(-10deg); }
+  81%, 100% { opacity: 1; transform: scale(1); }
+}
+
+/* ── 4 · Spicy Hug ── */
+.s4-pepper { animation-name: s4-pepper; }
+@keyframes s4-pepper {
+  0% { transform: translate(-60px, 330px); }
+  6%, 18% { transform: translate(10px, 322px); }
+  12%, 24% { transform: translate(90px, 330px); }
+  26% { transform: translate(175px, 326px); }
+  30%, 50% { transform: translate(178px, 330px) rotate(10deg); }
+  56%, 78% { transform: translate(170px, 330px) rotate(-4deg); }
+  82%, 90%, 98% { transform: translate(170px, 312px); }
+  86%, 94%, 100% { transform: translate(170px, 330px); }
+}
+.s4-shades-on { animation-name: s4-on-until-70; }
+.s4-man-plain { animation-name: s4-on-until-70; }
+@keyframes s4-on-until-70 { 0%, 70% { opacity: 1; } 71%, 100% { opacity: 0; } }
+.s4-shades-off { animation-name: s4-off-until-70; }
+.s4-man-cool { animation-name: s4-off-until-70; }
+@keyframes s4-off-until-70 { 0%, 70% { opacity: 0; } 71%, 100% { opacity: 1; } }
+.s4-melt { animation-name: s4-melt; transform-origin: 0 70px; }
+@keyframes s4-melt {
+  0%, 55% { transform: scale(1, 1); }
+  68%, 80% { transform: scale(1.06, 0.84); }
+  84%, 92% { transform: translate(0, -12px) scale(1.06, 0.84); }
+  88%, 96%, 100% { transform: scale(1.06, 0.84); }
+}
+.s4-sweat { animation-name: s4-sweat; }
+@keyframes s4-sweat {
+  0%, 55% { opacity: 0; transform: translate(0, 0); }
+  58% { opacity: 1; transform: translate(0, 0); }
+  63% { opacity: 1; transform: translate(0, 14px); }
+  64% { opacity: 1; transform: translate(0, 0); }
+  69% { opacity: 1; transform: translate(0, 14px); }
+  72%, 100% { opacity: 0; transform: translate(0, 18px); }
+}
+.s4-heat { animation-name: s4-heat; }
+@keyframes s4-heat {
+  0%, 40% { opacity: 0; transform: translate(0, 10px); }
+  45%, 55%, 65% { opacity: 1; transform: translate(-3px, 0); }
+  50%, 60% { opacity: 1; transform: translate(3px, -6px); }
+  70%, 100% { opacity: 0; transform: translate(0, -20px); }
+}
+.s4-hearts { animation-name: s4-hearts; }
+@keyframes s4-hearts {
+  0%, 27% { opacity: 0; transform: translate(0, 20px); }
+  32% { opacity: 1; }
+  54% { opacity: 1; transform: translate(0, -40px); }
+  58%, 100% { opacity: 0; transform: translate(0, -50px); }
+}
+
+/* ── 5 · Big Air ── */
+.s5-rider { animation-name: s5-rider; }
+@keyframes s5-rider {
+  0% { transform: translate(-80px, 312px); }
+  22% { transform: translate(150px, 312px); }
+  25% { transform: translate(200px, 262px) rotate(-20deg); }
+  35% { transform: translate(240px, 120px) rotate(-150deg); }
+  45% { transform: translate(285px, 100px) rotate(-300deg); }
+  55% { transform: translate(320px, 230px) rotate(-380deg); }
+  60%, 100% { transform: translate(330px, 300px) rotate(-360deg); }
+}
+.s5-poof { animation-name: s5-poof; }
+@keyframes s5-poof {
+  0%, 58% { opacity: 0; transform: translate(330px, 372px) scale(0); }
+  61% { opacity: 1; transform: translate(330px, 368px) scale(1.5); }
+  70%, 100% { opacity: 0; transform: translate(330px, 360px) scale(2); }
+}
+.s5-judge { animation: s5-judge 0.7s cubic-bezier(0.2, 1.6, 0.4, 1) both; }
+@keyframes s5-judge { from { transform: translate(0, 140px); } to { transform: translate(0, -10px); } }
+
+/* ── 6 · Chairlift Snack ── */
+.s6-chair { animation-name: s6-chair; }
+@keyframes s6-chair {
+  0% { transform: translate(-90px, 163px); }
+  20% { transform: translate(180px, 114px) rotate(3deg); }
+  30%, 50%, 70% { transform: translate(180px, 114px) rotate(-3deg); }
+  40%, 60%, 80% { transform: translate(180px, 114px) rotate(3deg); }
+  84% { transform: translate(180px, 114px) rotate(0deg); }
+  100% { transform: translate(500px, 55px); }
+}
+.s6-burrito { animation-name: s6-burrito; }
+@keyframes s6-burrito { 0%, 22% { opacity: 0; } 24%, 44% { opacity: 1; } 46%, 100% { opacity: 0; } }
+.s6-marmot-calm { animation-name: s6-calm; }
+@keyframes s6-calm { 0%, 46% { opacity: 1; } 47%, 100% { opacity: 0; } }
+.s6-marmot-hot { animation-name: s6-hot; }
+@keyframes s6-hot { 0%, 46% { opacity: 0; } 47%, 58% { opacity: 1; } 59%, 100% { opacity: 0; } }
+.s6-steam { animation-name: s6-steam; }
+@keyframes s6-steam {
+  0%, 47% { opacity: 0; transform: translate(0, 0); }
+  50%, 54% { opacity: 1; transform: translate(0, -6px); }
+  52%, 56% { opacity: 0.5; transform: translate(0, 0); }
+  59%, 100% { opacity: 0; }
+}
+.s6-leap { animation-name: s6-leap; }
+@keyframes s6-leap {
+  0%, 58% { opacity: 0; transform: translate(216px, 151px); }
+  59% { opacity: 1; transform: translate(216px, 151px); }
+  64% { transform: translate(250px, 80px) rotate(180deg); }
+  72% { transform: translate(280px, 410px) rotate(360deg); }
+  75%, 81%, 87%, 93%, 99% { transform: translate(280px, 404px) rotate(360deg); }
+  78%, 84%, 90%, 96%, 100% { opacity: 1; transform: translate(280px, 412px) rotate(360deg); }
+}
+.s6-poof { animation-name: s6-poof; }
+@keyframes s6-poof {
+  0%, 71% { opacity: 0; transform: translate(280px, 425px) scale(0); }
+  74% { opacity: 1; transform: translate(280px, 422px) scale(1.4); }
+  82%, 100% { opacity: 0; transform: translate(280px, 410px) scale(1.9); }
+}
+
+/* ── 7 · Face Shot ── */
+.s7-bob { animation: s7-bob 1.2s ease-in-out infinite alternate; }
+@keyframes s7-bob { from { transform: translate(0, -4px) rotate(-3deg); } to { transform: translate(0, 4px) rotate(3deg); } }
+.s7-before { animation-name: s7-before; }
+@keyframes s7-before { 0%, 44% { opacity: 1; } 46%, 100% { opacity: 0; } }
+.s7-after { animation-name: s7-after; }
+@keyframes s7-after { 0%, 45% { opacity: 0; } 47%, 100% { opacity: 1; } }
+.s7-wave { animation-name: s7-wave; }
+@keyframes s7-wave {
+  0%, 28% { transform: translate(430px, 0); }
+  42% { transform: translate(-40px, -30px); }
+  52%, 100% { transform: translate(-480px, -60px); }
+}
+.s7-flash { animation-name: s7-flash; }
+@keyframes s7-flash { 0%, 38% { opacity: 0; } 44% { opacity: 0.95; } 52%, 100% { opacity: 0; } }
+.s7-sparkles { animation-name: s7-sparkles; }
+@keyframes s7-sparkles {
+  0%, 52% { opacity: 0; }
+  58%, 70%, 82%, 94% { opacity: 1; }
+  64%, 76%, 88%, 100% { opacity: 0.3; }
+}
+
+/* ── 8 · Hot Tub Après ── */
+.s8-pepper { animation-name: s8-pepper; }
+/* Sinks in to the shoulders: face stays above the waterline (tub surface at y ≈ 340–380). */
+@keyframes s8-pepper {
+  0% { transform: translate(-60px, 250px); }
+  20% { transform: translate(150px, 290px) rotate(-10deg); }
+  28% { transform: translate(172px, 346px); }
+  40%, 60%, 80%, 100% { transform: translate(172px, 340px) rotate(-2deg); }
+  50%, 70%, 90% { transform: translate(172px, 346px) rotate(2deg); }
+}
+.s8-water { animation-name: s8-water; }
+/* Straight from blue through warm amber to chili red, never via a muddy blend. */
+@keyframes s8-water { 0%, 54% { fill: #5ab8ff; } 62% { fill: #ffc65c; } 70%, 100% { fill: #ff6b4a; } }
+.s8-duck { animation: s8-duck 1.6s ease-in-out infinite alternate; }
+@keyframes s8-duck { from { transform: translate(0, -3px) rotate(-6deg); } to { transform: translate(0, 3px) rotate(6deg); } }
+.s8-duck-plain { animation-name: s8-plain; }
+@keyframes s8-plain { 0%, 76% { opacity: 1; } 77%, 100% { opacity: 0; } }
+.s8-duck-cool { animation-name: s8-cool; }
+@keyframes s8-cool { 0%, 76% { opacity: 0; } 77%, 100% { opacity: 1; } }
+.s8-steam { animation: s8-steam 3s ease-out infinite; }
+@keyframes s8-steam { from { transform: translate(0, 10px); opacity: 0; } 30% { opacity: 0.7; } to { transform: translate(0, -30px); opacity: 0; } }
+
+/* ── 9 · Snow Angel Choir ── */
+.s9-wings { animation-name: s9-wings; }
+@keyframes s9-wings {
+  0%, 8%, 16%, 24%, 32%, 38%, 100% { transform: scale(1, 1); }
+  4%, 12%, 20%, 28%, 35% { transform: scale(1.3, 0.85); }
+}
+.s9-lying { animation-name: s9-lying; }
+@keyframes s9-lying { 0%, 72% { opacity: 1; } 73%, 100% { opacity: 0; } }
+.s9-sitting { animation-name: s9-sitting; }
+@keyframes s9-sitting {
+  0%, 72% { opacity: 0; transform: translate(0, 20px); }
+  74% { opacity: 1; transform: translate(0, -10px); }
+  78%, 100% { opacity: 1; transform: translate(0, -2px); }
+}
+.s9-angel { animation: s9-angel 4.5s ease-in-out both; }
+@keyframes s9-angel {
+  0% { opacity: 0; transform: translate(0, 20px) scale(0.6); }
+  20% { opacity: 1; transform: translate(0, -10px) scale(1); }
+  50% { transform: translate(-12px, -90px); }
+  80% { transform: translate(12px, -150px); }
+  100% { opacity: 0.85; transform: translate(0, -180px); }
+}
+.s9-notes { animation-name: s9-notes; }
+@keyframes s9-notes {
+  0%, 40% { opacity: 0; transform: translate(0, 20px); }
+  46%, 58% { opacity: 1; transform: translate(0, 0); }
+  52%, 64% { opacity: 1; transform: translate(6px, -12px); }
+  72%, 100% { opacity: 0; transform: translate(0, -30px); }
+}
+.s9-hearts { animation-name: s9-hearts; }
+@keyframes s9-hearts {
+  0%, 75% { opacity: 0; transform: translate(0, 10px) scale(0.5); }
+  80% { opacity: 1; transform: translate(0, -10px) scale(1.2); }
+  100% { opacity: 0.9; transform: translate(0, -50px) scale(1); }
+}
+
+/* ── 10 · Jalapeño Jr. ── */
+.s10-baby { animation-name: s10-baby; }
+@keyframes s10-baby {
+  0% { transform: translate(20px, 268px); }
+  28% { transform: translate(120px, 284px); }
+  32%, 44% { transform: translate(140px, 298px); }
+  56% { transform: translate(150px, 290px); }
+  70% { transform: translate(230px, 312px); }
+  74% { transform: translate(245px, 270px); }
+  78% { transform: translate(260px, 318px); }
+  100% { transform: translate(270px, 322px); }
+}
+.s10-wobble { animation-name: s10-wobble; }
+@keyframes s10-wobble {
+  0%, 8%, 16%, 24% { transform: rotate(-10deg); }
+  4%, 12%, 20%, 28% { transform: rotate(10deg); }
+  32%, 44% { transform: rotate(80deg) translate(10px, 10px); }
+  48% { transform: rotate(-12deg); }
+  52%, 60%, 68% { transform: rotate(5deg); }
+  56%, 64% { transform: rotate(-5deg); }
+  74% { transform: rotate(-18deg); }
+  78%, 100% { transform: rotate(0deg); }
+}
+.s10-parent { animation-name: s10-parent; }
+@keyframes s10-parent {
+  0%, 10%, 20% { transform: rotate(-4deg); }
+  5%, 15%, 25% { transform: rotate(4deg); }
+  30%, 44% { transform: translate(0, 4px) scale(0.96); }
+  72% { transform: none; }
+  76%, 84%, 92% { transform: translate(0, -24px); }
+  80%, 88%, 96%, 100% { transform: translate(0, 0); }
+}
+.s10-hearts { animation-name: s10-hearts; }
+@keyframes s10-hearts {
+  0%, 73% { opacity: 0; transform: translate(0, 20px) scale(0.4); }
+  78% { opacity: 1; transform: translate(0, -10px) scale(1.15); }
+  100% { opacity: 0.9; transform: translate(0, -70px) scale(1); }
+}
+
+/* ── Player ── */
+.sendit {
+  position: fixed; inset: 0; z-index: 110; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: calc(env(safe-area-inset-top) + 10px) 14px calc(env(safe-area-inset-bottom) + 14px);
+  background: radial-gradient(120% 90% at 50% 0%, #2a1a5e, #0b0b24 70%);
+  animation: rise 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.sendit-stage {
+  position: relative; width: min(100%, 420px); aspect-ratio: 4 / 5; max-height: 68vh; border-radius: 26px; overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  box-shadow: 0 30px 60px -20px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+.sendit-title { margin: 0 0 10px; font-family: var(--display); font-size: 0.8rem; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: #ffd23f; }
+.sendit-caption {
+  min-height: 3.2em; margin: 14px 0 6px; padding: 0 8px; text-align: center; color: #fff;
+  font-family: var(--display); font-size: 1.45rem; font-weight: 700; line-height: 1.2; text-shadow: 0 3px 12px rgba(0, 0, 0, 0.5);
+}
+.sendit-caption span { display: inline-block; animation: caption-pop 0.35s cubic-bezier(0.2, 1.6, 0.4, 1) both; }
+@keyframes caption-pop { from { opacity: 0; transform: translateY(8px) scale(0.9); } }
+.sendit-progress { width: min(100%, 420px); height: 4px; border-radius: 4px; background: rgba(255, 255, 255, 0.18); overflow: hidden; }
+.sendit-progress i { display: block; height: 100%; background: linear-gradient(90deg, #ffd23f, #ff4f7b); transform-origin: left; animation: progress var(--dur) linear both; }
+@keyframes progress { from { transform: scaleX(0); } }
+.sendit-skip { margin-top: 10px; font-size: 0.75rem; color: rgba(255, 255, 255, 0.65); }

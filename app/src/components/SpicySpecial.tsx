@@ -100,7 +100,7 @@ function PepperScene() {
 }
 
 /** Full-screen celebration when a favorite gets more than a foot in 24 hours. */
-export function SpicySpecial({ hits, summoned = false, onClose }: { hits: SpicyHit[]; summoned?: boolean; onClose: () => void }) {
+export function SpicySpecial({ hits, summoned = false, onClose, onSendIt }: { hits: SpicyHit[]; summoned?: boolean; onClose: () => void; onSendIt: () => void }) {
   const button = useRef<HTMLButtonElement>(null)
   useEffect(() => {
     button.current?.focus()
@@ -148,7 +148,7 @@ export function SpicySpecial({ hits, summoned = false, onClose }: { hits: SpicyH
           <li><span>Snow</span><b>{summoned && top.inches < 12 ? 'IMAGINARY ❄️' : 'BOTTOMLESS ❄️'}</b></li>
           <li><span>Vibes</span><b>IMMACULATE 🌶️</b></li>
         </ul>
-        <button ref={button} className="spicy-go" onClick={onClose}>SEND IT 🤙</button>
+        <button ref={button} className="spicy-go" onClick={onSendIt}>SEND IT 🤙</button>
         <p className="spicy-fine">Call in sick. Responsibly.</p>
       </div>
     </div>
