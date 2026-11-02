@@ -9,6 +9,8 @@ import { loadFavorites, moveItem, saveFavorites } from './storage'
 const MapView = lazy(() => import('./screens/MapView').then(m => ({ default: m.MapView })))
 const Alerts = lazy(() => import('./screens/Alerts').then(m => ({ default: m.Alerts })))
 const Accuracy = lazy(() => import('./screens/Accuracy').then(m => ({ default: m.Accuracy })))
+const PastList = lazy(() => import('./screens/Past').then(m => ({ default: m.PastList })))
+const PastDetail = lazy(() => import('./screens/Past').then(m => ({ default: m.PastDetail })))
 
 const favoriteLocations = (ids: string[]) => ids.map(id => LOCATIONS_BY_ID.get(id)).filter((l): l is SnowLocation => !!l)
 
@@ -17,6 +19,8 @@ type Route =
   | { name: 'map' }
   | { name: 'alerts' }
   | { name: 'accuracy' }
+  | { name: 'past' }
+  | { name: 'pastLoc'; id: string }
   | { name: 'loc'; loc: SnowLocation }
   | { name: 'point'; loc: SnowLocation }
 
@@ -25,6 +29,7 @@ function parseRoute(hash: string): Route {
   if (kind === 'map') return { name: 'map' }
   if (kind === 'alerts') return { name: 'alerts' }
   if (kind === 'accuracy') return { name: 'accuracy' }
+  if (kind === 'past') return arg ? { name: 'pastLoc', id: arg } : { name: 'past' }
   if (kind === 'loc') {
     const loc = LOCATIONS_BY_ID.get(arg)
     if (loc) return { name: 'loc', loc }
@@ -57,7 +62,10 @@ export default function App() {
   const toggleFavorite = (id: string) =>
     updateFavorites(favorites.includes(id) ? favorites.filter(f => f !== id) : [...favorites, id])
 
-  const tab = route.name === 'map' || route.name === 'point' ? 'map' : route.name === 'alerts' || route.name === 'accuracy' ? route.name : 'home'
+  const tab = route.name === 'map' || route.name === 'point' ? 'map'
+    : route.name === 'past' || route.name === 'pastLoc' ? 'past'
+    : route.name === 'alerts' || route.name === 'accuracy' ? route.name
+    : 'home'
   const loading = <div className="loading">Loading…</div>
 
   return (
@@ -73,6 +81,8 @@ export default function App() {
         {route.name === 'map' && <Suspense fallback={<div className="loading">Loading map…</div>}><MapView /></Suspense>}
         {route.name === 'alerts' && <Suspense fallback={loading}><Alerts favorites={favoriteLocations(favorites)} /></Suspense>}
         {route.name === 'accuracy' && <Suspense fallback={loading}><Accuracy /></Suspense>}
+        {route.name === 'past' && <Suspense fallback={loading}><PastList favorites={favoriteLocations(favorites)} /></Suspense>}
+        {route.name === 'pastLoc' && <Suspense fallback={loading}><PastDetail key={route.id} id={route.id} /></Suspense>}
         {route.name === 'loc' && (
           <LocationView key={route.loc.id} loc={route.loc} isFavorite={favorites.includes(route.loc.id)} onToggleFavorite={() => toggleFavorite(route.loc.id)} />
         )}
@@ -81,6 +91,10 @@ export default function App() {
       <nav className="tab-bar">
         <a href="#/" className={tab === 'home' ? 'active' : ''}><span aria-hidden>❄</span>Forecasts</a>
         <a href="#/map" className={tab === 'map' ? 'active' : ''}><span aria-hidden>⛰</span>Map</a>
+        <a href="#/past" className={tab === 'past' ? 'active' : ''}>
+          <svg aria-hidden viewBox="0 0 24 24" className="tab-icon"><path d="M13 3a9 9 0 0 0-9 9H1l3.9 3.9.1.1L9 12H6a7 7 0 1 1 2.05 4.95l-1.42 1.42A9 9 0 1 0 13 3Zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8Z" /></svg>
+          Past
+        </a>
         <a href="#/alerts" className={tab === 'alerts' ? 'active' : ''}>
           <svg aria-hidden viewBox="0 0 24 24" className="tab-icon"><path d="M12 22a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22Zm7-6V11a7 7 0 0 0-5.5-6.84V3.5a1.5 1.5 0 0 0-3 0v.66A7 7 0 0 0 5 11v5l-2 2v1h18v-1Z" /></svg>
           Alerts

@@ -8,10 +8,17 @@ export interface Favorite {
   elevationFt: number
 }
 
-/** Inches; null turns that window off. */
+/** Inches; null turns that alert off. */
 export interface Thresholds {
   h72In: number | null
   d7In: number | null
+  /** Fresh snow measured in the last `freshHours` (24 or 48) at a favorite's station. */
+  freshIn?: number | null
+  freshHours?: 24 | 48
+  /** Day-before forecast off from the measurement by at least this much. */
+  missIn?: number | null
+  /** Weekly recap on this weekday morning (0 = Sunday … 5 = Friday); null for none. */
+  recapDay?: number | null
 }
 
 export type AlertWindow = 'h72' | 'd7'
@@ -30,6 +37,8 @@ export interface SubscriptionRecord {
   updatedAt: number
   /** Keyed by `${locationId}:${window}`. */
   lastAlerts: Record<string, LastAlert>
+  /** Past-snowfall alerts sent, keyed `${kind}:${locationId}` or `recap` -> date sent for. */
+  lastPast?: Record<string, string>
 }
 
 /** Expected snow (inches) for one location. */
@@ -167,6 +176,12 @@ export function parsePutBody(body: unknown): Pick<SubscriptionRecord, 'subscript
   const t = (b.thresholds ?? {}) as Record<string, unknown>
   const h72In = threshold(t.h72In)
   const d7In = threshold(t.d7In)
-  if (h72In === undefined || d7In === undefined) return 'thresholds must be positive numbers or null'
-  return { subscription, favorites, thresholds: { h72In, d7In } }
+  // Past-snowfall settings are optional so older app versions keep working (they mean "off").
+  const freshIn = threshold(t.freshIn)
+  const missIn = threshold(t.missIn)
+  if (h72In === undefined || d7In === undefined || freshIn === undefined || missIn === undefined) return 'thresholds must be positive numbers or null'
+  const freshHours = t.freshHours === 48 ? 48 : 24
+  const recapDay = t.recapDay == null ? null : Number.isInteger(t.recapDay) && (t.recapDay as number) >= 0 && (t.recapDay as number) <= 6 ? (t.recapDay as number) : undefined
+  if (recapDay === undefined) return 'recapDay must be 0-6 or null'
+  return { subscription, favorites, thresholds: { h72In, d7In, freshIn, freshHours, missIn, recapDay } }
 }

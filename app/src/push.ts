@@ -4,19 +4,27 @@ import type { SnowLocation } from './data/locations'
 const API = (import.meta.env.VITE_ALERTS_API as string | undefined)?.replace(/\/+$/, '') || null
 
 export interface Thresholds {
-  /** Inches; null turns that window off. */
+  /** Forecast alerts, inches; null turns that window off. */
   h72In: number | null
   d7In: number | null
+  /** Past-snowfall alerts (sent ~6am MT): fresh snow measured in the last 24 or 48 hours. */
+  freshIn: number | null
+  freshHours: 24 | 48
+  /** Day-before forecast missed the measurement by at least this much. */
+  missIn: number | null
+  /** Weekly recap weekday, 0 = Sunday … 5 = Friday; null for none. */
+  recapDay: number | null
 }
 
 const THRESHOLDS_KEY = 'snowcast.alertThresholds'
-export const DEFAULT_THRESHOLDS: Thresholds = { h72In: 6, d7In: 12 }
+export const DEFAULT_THRESHOLDS: Thresholds = { h72In: 6, d7In: 12, freshIn: 6, freshHours: 24, missIn: 4, recapDay: 5 }
 
 export function loadThresholds(): Thresholds {
   try {
     const raw = localStorage.getItem(THRESHOLDS_KEY)
     const t = raw ? JSON.parse(raw) : null
-    if (t && 'h72In' in t && 'd7In' in t) return { h72In: t.h72In ?? null, d7In: t.d7In ?? null }
+    // Settings saved before past-snowfall alerts existed pick up the new defaults.
+    if (t && 'h72In' in t && 'd7In' in t) return { ...DEFAULT_THRESHOLDS, ...t }
   } catch {
     // Blocked storage: fall through to defaults.
   }

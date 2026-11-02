@@ -1,5 +1,11 @@
 import { parsePutBody, parseSubscription, testPayload, type SubscriptionRecord } from './alerts'
-import { runAlerts, subKey, vapid, type Env } from './run'
+import { runAlerts, runMorning, subKey, vapid, type Env } from './run'
+
+/**
+ * Past-snowfall alerts: 13:00 UTC = 6am MST (7am MDT), after .github/workflows/past.yml (12:00 UTC)
+ * has published fresh data. Must match the second cron in wrangler.toml.
+ */
+const MORNING_CRON = '0 13 * * *'
 import { sendPush } from './webpush'
 // Module form of the Workers types, so the DOM lib (which the app's forecast code is written against) stays in charge of fetch/Response.
 import type { ExecutionContext, ScheduledController } from '@cloudflare/workers-types'
@@ -77,7 +83,7 @@ export default {
       return json({ error: 'internal error' }, 500, cors(req, env))
     }
   },
-  async scheduled(_event: ScheduledController, env: Env, ctx: ExecutionContext) {
-    ctx.waitUntil(runAlerts(env))
+  async scheduled(event: ScheduledController, env: Env, ctx: ExecutionContext) {
+    ctx.waitUntil(event.cron === MORNING_CRON ? runMorning(env) : runAlerts(env))
   },
 }

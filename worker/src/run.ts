@@ -1,5 +1,6 @@
 import { buildPayload, evaluate, pointKey, type Favorite, type LocationTotals, type SubscriptionRecord } from './alerts'
 import { fetchWeights, forecastTotals } from './forecast'
+import { denverToday, evaluatePast, fetchPast, MAX_DATA_AGE_MS } from './past'
 import { sendPush, type VapidKeys } from './webpush'
 import type { KVNamespace } from '@cloudflare/workers-types'
 
@@ -107,6 +108,48 @@ export async function runAlerts(env: Env, nowMs = Date.now()) {
     }
   }
   const summary = { subscriptions: subs.length, points: points.size, forecast: totals.size, batch: batch.length, sent, dropped }
+  console.log(JSON.stringify(summary))
+  return summary
+}
+
+/**
+ * Morning run: fresh-snow, forecast-miss and weekly-recap alerts from the published past-snowfall data,
+ * which a GitHub Actions job refreshes shortly before this cron.
+ */
+export async function runMorning(env: Env, nowMs = Date.now()) {
+  const past = await fetchPast()
+  if (!past || nowMs - Date.parse(past.generated) > MAX_DATA_AGE_MS) {
+    console.warn(`past-snowfall data missing or stale (${past?.generated ?? 'none'}); skipping morning alerts`)
+    return { skipped: true }
+  }
+  const today = denverToday(nowMs)
+  const subs = await loadSubscriptions(env.SUBS)
+  let sent = 0
+  let dropped = 0
+  for (const [key, rec] of subs) {
+    const { payloads, lastPast } = evaluatePast(rec, past, today)
+    if (!payloads.length) continue
+    let ok = true
+    for (const payload of payloads) {
+      try {
+        const res = await sendPush(rec.subscription, payload, vapid(env), { topic: payload.tag })
+        if (res.gone) {
+          await env.SUBS.delete(key)
+          dropped++
+          ok = false
+          break
+        }
+        if (res.status < 300) sent++
+        else ok = false
+      } catch (e) {
+        console.warn(`morning push to ${key} threw: ${(e as Error).message}`)
+        ok = false
+      }
+    }
+    // Record what was sent only if every push went through, so a failed send retries next morning.
+    if (ok) await env.SUBS.put(key, JSON.stringify({ ...rec, lastPast }))
+  }
+  const summary = { morning: true, subscriptions: subs.length, sent, dropped }
   console.log(JSON.stringify(summary))
   return summary
 }

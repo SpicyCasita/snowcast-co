@@ -4,9 +4,9 @@ import 'uplot/dist/uPlot.min.css'
 import { cumulative, type BlendedForecast } from '../forecast/blend'
 
 const HOURS = 72
-const HEIGHT = 200
+export const HEIGHT = 200
 
-const css = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+export const css = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim()
 
 const hourFmt = new Intl.DateTimeFormat('en-US', { hour: 'numeric', timeZone: 'America/Denver' })
 const dayFmt = new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: 'America/Denver' })
@@ -24,7 +24,7 @@ export function sixHourTicks(times: number[]): number[] {
   return times.filter(t => Number(hourFmt.format(new Date(t * 1000)).split(' ')[0]) % 6 === 0)
 }
 
-function axisBase() {
+export function axisBase() {
   return { stroke: css('--text-muted'), grid: { stroke: css('--grid'), width: 1 }, ticks: { show: false }, font: '11px system-ui' }
 }
 
@@ -34,7 +34,7 @@ const xAxis = () => ({
   values: (_u: uPlot, splits: number[]) => splits.map(tickLabel),
 })
 
-function usePlot(build: (width: number) => { opts: uPlot.Options; data: uPlot.AlignedData } | null, deps: unknown[]) {
+export function usePlot(build: (width: number) => { opts: uPlot.Options; data: uPlot.AlignedData } | null, deps: unknown[]) {
   const el = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const node = el.current

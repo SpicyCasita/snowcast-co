@@ -71,6 +71,7 @@ export function LocationView({ loc, isFavorite, onToggleFavorite }: Props) {
       {state.status === 'loading' && <div className="loading">Loading forecasts from 7 sources…</div>}
       {state.status === 'error' && <div className="error">Couldn't load the forecast: {state.error}</div>}
       {state.status === 'ready' && <ForecastBody forecast={state.forecast} />}
+      {!isPoint && <a className="link-button past-link" href={`#/past/${loc.id}`}>Past snowfall &amp; how our forecasts did here →</a>}
     </div>
   )
 }

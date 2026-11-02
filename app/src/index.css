@@ -11,6 +11,7 @@
   --snow-soft: rgba(59, 142, 234, 0.22);
   --warm: #e0712c;
   --wind: #6a7f99;
+  --forecast-fill: rgba(224, 113, 44, 0.22);
   --good: #0f9d6b;
   --danger: #c63b3b;
   --tab-h: 64px;
@@ -31,6 +32,7 @@
     --snow-soft: rgba(108, 178, 255, 0.22);
     --warm: #f19a5e;
     --wind: #9fb0c6;
+    --forecast-fill: rgba(241, 154, 94, 0.25);
     color-scheme: dark;
   }
 }
@@ -47,6 +49,7 @@
   --snow-soft: rgba(108, 178, 255, 0.22);
   --warm: #f19a5e;
   --wind: #9fb0c6;
+  --forecast-fill: rgba(241, 154, 94, 0.25);
   color-scheme: dark;
 }
 
@@ -220,3 +223,18 @@ section { margin-top: 24px; }
 /* Inputs have an intrinsic min width; let them shrink so two fit on a phone. */
 .elev-form label { min-width: 0; }
 .elev-form input { width: 100%; min-width: 0; }
+
+/* Past snowfall */
+.past-totals { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 10px; }
+.past-error { margin-top: 8px; color: var(--text-muted); }
+.past-error strong { color: var(--text); }
+.badge { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 999px; background: var(--surface-2); color: var(--text-muted); font-size: 0.65rem; font-weight: 600; vertical-align: middle; }
+.over { color: var(--warm); }
+.under { color: var(--snow); }
+.total-card-val.over, .total-card-val.under { font-size: 1.6rem; }
+.swatch.forecast { height: 10px; width: 8px; background: var(--forecast-fill); border: 1.5px solid var(--warm); }
+.past-table td, .past-table th { font-variant-numeric: tabular-nums; }
+.past-link { display: block; margin-top: 12px; text-align: right; }
+
+.elev-form select { margin-top: 4px; padding: 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 16px; width: 100%; min-width: 0; }
+.form-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 16px; }

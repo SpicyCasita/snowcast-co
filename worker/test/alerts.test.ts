@@ -114,7 +114,12 @@ describe('parsePutBody', () => {
 
   it('accepts a valid body', () => {
     const r = parsePutBody({ subscription, favorites: [vail], thresholds: { h72In: 6, d7In: null } })
-    expect(r).toEqual({ subscription: { ...subscription, expirationTime: null }, favorites: [vail], thresholds: { h72In: 6, d7In: null } })
+    expect(r).toEqual({
+      subscription: { ...subscription, expirationTime: null },
+      favorites: [vail],
+      // Past-snowfall alerts default to off when an older app omits them.
+      thresholds: { h72In: 6, d7In: null, freshIn: null, freshHours: 24, missIn: null, recapDay: null },
+    })
   })
 
   it('rejects bad input', () => {

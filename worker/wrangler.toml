@@ -5,7 +5,8 @@ workers_dev = true
 
 [triggers]
 # Every 5 minutes, one favorite point per run (see RUN_EVERY_MIN in src/index.ts).
-crons = ["*/5 * * * *"]
+# Plus 13:00 UTC (6am MST): past-snowfall alerts (MORNING_CRON in src/index.ts).
+crons = ["*/5 * * * *", "0 13 * * *"]
 
 # `npx wrangler kv namespace create SUBS`, then paste the id here.
 [[kv_namespaces]]
