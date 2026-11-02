@@ -151,7 +151,7 @@ export function PastDetail({ id }: { id: string }) {
       {l && (
         <>
           {l.estimate && <p className="muted small">No station within 15 km, so "measured" here is a model-analysis estimate.</p>}
-          <Totals l={l} />
+          <div className="fav-card past-summary"><Totals l={l} /></div>
 
           <section>
             <h2 className="section-title">Last 30 days · measured vs forecast</h2>

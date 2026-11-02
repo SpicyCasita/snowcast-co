@@ -21,8 +21,8 @@ export default defineConfig({
         name: 'SnowCast CO',
         short_name: 'SnowCast',
         description: 'Colorado snowfall forecasts blended from 6 models + NWS',
-        theme_color: '#1b6fd8',
-        background_color: '#0b1220',
+        theme_color: '#bcdcff',
+        background_color: '#03060f',
         display: 'standalone',
         icons: [
           { src: 'icon-192.png', sizes: '192x192', type: 'image/png' },
@@ -30,7 +30,7 @@ export default defineConfig({
         ],
       },
       injectManifest: {
-        globPatterns: ['**/*.{js,css,html,png}'],
+        globPatterns: ['**/*.{js,css,html,png,woff2}'],
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
       },
     }),

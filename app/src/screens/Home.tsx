@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { LOCATIONS, LOCATIONS_BY_ID, type LocationKind, type SnowLocation } from '../data/locations'
+import { LogoMark } from '../components/Icons'
 import { useForecast } from '../forecast/useForecast'
 import { confidenceLabel, feet, inches, range } from '../format'
 import { loadOpenSections, saveOpenSections } from '../storage'
@@ -94,7 +95,10 @@ export function Home({ favorites, onMoveFavorite, onRemoveFavorite }: Props) {
   return (
     <div className="screen">
       <header className="app-header">
-        <h1>SnowCast <span className="accent">CO</span></h1>
+        <div className="brand">
+          <LogoMark />
+          <h1>SnowCast <span className="accent">CO</span></h1>
+        </div>
         <p className="muted small">6 weather models + NWS, blended and tuned for Colorado snow</p>
       </header>
 

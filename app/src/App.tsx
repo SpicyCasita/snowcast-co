@@ -1,4 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
+import { Backdrop } from './components/Backdrop'
+import { BellIcon, ChartIcon, MapIcon, PastIcon, SnowflakeIcon } from './components/Icons'
 import { LOCATIONS_BY_ID, type SnowLocation } from './data/locations'
 import { Home } from './screens/Home'
 import { LocationView } from './screens/LocationView'
@@ -70,6 +72,7 @@ export default function App() {
 
   return (
     <div className="app">
+      <Backdrop />
       <main>
         {route.name === 'home' && (
           <Home
@@ -88,21 +91,12 @@ export default function App() {
         )}
         {route.name === 'point' && <LocationView key={route.loc.id} loc={route.loc} />}
       </main>
-      <nav className="tab-bar">
-        <a href="#/" className={tab === 'home' ? 'active' : ''}><span aria-hidden>❄</span>Forecasts</a>
-        <a href="#/map" className={tab === 'map' ? 'active' : ''}><span aria-hidden>⛰</span>Map</a>
-        <a href="#/past" className={tab === 'past' ? 'active' : ''}>
-          <svg aria-hidden viewBox="0 0 24 24" className="tab-icon"><path d="M13 3a9 9 0 0 0-9 9H1l3.9 3.9.1.1L9 12H6a7 7 0 1 1 2.05 4.95l-1.42 1.42A9 9 0 1 0 13 3Zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8Z" /></svg>
-          Past
-        </a>
-        <a href="#/alerts" className={tab === 'alerts' ? 'active' : ''}>
-          <svg aria-hidden viewBox="0 0 24 24" className="tab-icon"><path d="M12 22a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22Zm7-6V11a7 7 0 0 0-5.5-6.84V3.5a1.5 1.5 0 0 0-3 0v.66A7 7 0 0 0 5 11v5l-2 2v1h18v-1Z" /></svg>
-          Alerts
-        </a>
-        <a href="#/accuracy" className={tab === 'accuracy' ? 'active' : ''}>
-          <svg aria-hidden viewBox="0 0 24 24" className="tab-icon"><path d="M4 20h16v-2H4Zm1-4h3V9H5Zm5.5 0h3V4h-3ZM16 16h3v-5h-3Z" /></svg>
-          Accuracy
-        </a>
+      <nav className="tab-bar" aria-label="Main">
+        <a href="#/" className={tab === 'home' ? 'active' : ''} aria-current={tab === 'home' ? 'page' : undefined}><SnowflakeIcon />Forecasts</a>
+        <a href="#/map" className={tab === 'map' ? 'active' : ''} aria-current={tab === 'map' ? 'page' : undefined}><MapIcon />Map</a>
+        <a href="#/past" className={tab === 'past' ? 'active' : ''} aria-current={tab === 'past' ? 'page' : undefined}><PastIcon />Past</a>
+        <a href="#/alerts" className={tab === 'alerts' ? 'active' : ''} aria-current={tab === 'alerts' ? 'page' : undefined}><BellIcon />Alerts</a>
+        <a href="#/accuracy" className={tab === 'accuracy' ? 'active' : ''} aria-current={tab === 'accuracy' ? 'page' : undefined}><ChartIcon />Accuracy</a>
       </nav>
     </div>
   )

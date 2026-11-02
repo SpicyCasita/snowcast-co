@@ -6,12 +6,6 @@ import {
   type Thresholds,
 } from '../push'
 
-const primaryButton: CSSProperties = {
-  padding: '10px 16px', borderRadius: 10, border: 0, background: 'var(--accent)', color: '#fff', fontWeight: 600, cursor: 'pointer',
-}
-const secondaryButton: CSSProperties = {
-  ...primaryButton, background: 'var(--surface-2)', color: 'var(--text)', border: '1px solid var(--border)', fontWeight: 500,
-}
 const row: CSSProperties = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -141,8 +135,8 @@ export function Alerts({ favorites }: { favorites: SnowLocation[] }) {
           </div>
           {support === 'ok' && subscribed !== undefined && (
             subscribed
-              ? <button style={secondaryButton} disabled={busy} onClick={disable}>Turn off</button>
-              : <button style={primaryButton} disabled={busy} onClick={enable}>Enable alerts</button>
+              ? <button className="btn-secondary" disabled={busy} onClick={disable}>Turn off</button>
+              : <button className="btn-primary" disabled={busy} onClick={enable}>Enable alerts</button>
           )}
         </div>
         {status && <p className={status.kind === 'error' ? 'small' : 'small muted'} style={status.kind === 'error' ? { color: 'var(--danger)' } : undefined} role="status">{status.text}</p>}
@@ -198,7 +192,7 @@ export function Alerts({ favorites }: { favorites: SnowLocation[] }) {
         </section>
 
         <div className="form-actions">
-          <button type="submit" style={primaryButton} disabled={busy}>Save alert settings</button>
+          <button type="submit" className="btn-primary" disabled={busy}>Save alert settings</button>
           {off && <span className="muted small">Everything is off, so no alerts will be sent.</span>}
         </div>
         <p className="muted small">Leave a box blank to turn that alert off.</p>
@@ -224,7 +218,7 @@ export function Alerts({ favorites }: { favorites: SnowLocation[] }) {
 
       {support === 'ok' && subscribed && (
         <section>
-          <button style={secondaryButton} disabled={busy} onClick={test}>Send test notification</button>
+          <button className="btn-secondary" disabled={busy} onClick={test}>Send test notification</button>
         </section>
       )}
     </div>
