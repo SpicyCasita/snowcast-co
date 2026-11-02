@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react'
 import { LOCATIONS, LOCATIONS_BY_ID, type LocationKind, type SnowLocation } from '../data/locations'
-import { LogoMark } from '../components/Icons'
+import { LogoMark, SnowflakeIcon } from '../components/Icons'
+import { ThemeToggle } from '../components/ThemeToggle'
 import { useForecast } from '../forecast/useForecast'
 import { confidenceLabel, feet, inches, range } from '../format'
 import { loadOpenSections, saveOpenSections } from '../storage'
+import type { StormHit } from '../storm'
 
 const SECTIONS: { kind: LocationKind; title: string }[] = [
   { kind: 'resort', title: 'Ski resorts' },
@@ -71,11 +73,12 @@ function FavoriteCard({ loc, edit }: { loc: SnowLocation; edit?: EditProps }) {
 
 interface Props {
   favorites: string[]
+  storm?: StormHit[]
   onMoveFavorite: (from: number, to: number) => void
   onRemoveFavorite: (id: string) => void
 }
 
-export function Home({ favorites, onMoveFavorite, onRemoveFavorite }: Props) {
+export function Home({ favorites, storm = [], onMoveFavorite, onRemoveFavorite }: Props) {
   const [query, setQuery] = useState('')
   const [editing, setEditing] = useState(false)
   const [open, setOpen] = useState(loadOpenSections)
@@ -98,9 +101,20 @@ export function Home({ favorites, onMoveFavorite, onRemoveFavorite }: Props) {
         <div className="brand">
           <LogoMark />
           <h1>SnowCast <span className="accent">CO</span></h1>
+          <ThemeToggle />
         </div>
         <p className="muted small">6 weather models + NWS, blended and tuned for Colorado snow</p>
       </header>
+
+      {!query && storm.length > 0 && (
+        <div className="storm-banner" role="status">
+          <SnowflakeIcon />
+          <span>
+            <b>Snow on the way</b> · next 24h: {storm.slice(0, 3).map(h => `${h.name} ${inches(h.inches)}"`).join(' · ')}
+            {storm.length > 3 && ` +${storm.length - 3} more`}
+          </span>
+        </div>
+      )}
 
       {!query && favLocs.length > 0 && (
         <section>

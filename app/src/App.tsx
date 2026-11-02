@@ -1,10 +1,13 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { Backdrop } from './components/Backdrop'
+import { SpicySpecial } from './components/SpicySpecial'
 import { BellIcon, ChartIcon, MapIcon, PastIcon, SnowflakeIcon } from './components/Icons'
 import { LOCATIONS_BY_ID, type SnowLocation } from './data/locations'
 import { Home } from './screens/Home'
 import { LocationView } from './screens/LocationView'
 import { syncAlerts } from './push'
+import { useSpicy } from './spicy'
+import { useStorm } from './storm'
 import { loadFavorites, moveItem, saveFavorites } from './storage'
 
 // MapLibre is most of the bundle; only load it when the map tab opens.
@@ -69,14 +72,18 @@ export default function App() {
     : route.name === 'alerts' || route.name === 'accuracy' ? route.name
     : 'home'
   const loading = <div className="loading">Loading…</div>
+  const storm = useStorm(favoriteLocations(favorites))
+  const [spicy, closeSpicy] = useSpicy(favoriteLocations(favorites))
 
   return (
     <div className="app">
-      <Backdrop />
+      <Backdrop storm={storm.length > 0} />
+      {spicy.length > 0 && <SpicySpecial hits={spicy} onClose={closeSpicy} />}
       <main>
         {route.name === 'home' && (
           <Home
             favorites={favorites}
+            storm={storm}
             onMoveFavorite={(from, to) => updateFavorites(moveItem(favorites, from, to))}
             onRemoveFavorite={id => updateFavorites(favorites.filter(f => f !== id))}
           />

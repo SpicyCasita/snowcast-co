@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import uPlot from 'uplot'
 import 'uplot/dist/uPlot.min.css'
 import { cumulative, type BlendedForecast } from '../forecast/blend'
+import { useThemeVersion } from '../theme'
 
 const HOURS = 72
 export const HEIGHT = 200
@@ -36,6 +37,8 @@ const xAxis = () => ({
 
 export function usePlot(build: (width: number) => { opts: uPlot.Options; data: uPlot.AlignedData } | null, deps: unknown[]) {
   const el = useRef<HTMLDivElement>(null)
+  // Canvas colors are read once, so rebuild when the theme changes.
+  const themeVersion = useThemeVersion()
   useEffect(() => {
     const node = el.current
     if (!node) return
@@ -46,7 +49,7 @@ export function usePlot(build: (width: number) => { opts: uPlot.Options; data: u
     ro.observe(node)
     return () => { ro.disconnect(); plot.destroy() }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, deps)
+  }, [...deps, themeVersion])
   return el
 }
 

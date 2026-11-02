@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import uPlot from 'uplot'
-import { LOCATIONS, type SnowLocation } from '../data/locations'
+import { LOCATIONS, LOCATIONS_BY_ID, type SnowLocation } from '../data/locations'
 import { dayLabel, inches } from '../format'
 import { biasPhrase, lastDaysTotal, loadPastSnowfall, stationLabel, type PastLocation, type PastSnowfall } from '../past'
+import { getRecent, type RecentSnow } from '../recent'
 import { axisBase, css, HEIGHT, usePlot } from './HourlyChart'
 
 const CHART_DAYS = 30
@@ -24,17 +25,49 @@ const amount = (x: number | null) => (x == null ? '–' : `${inches(x)}"`)
 /** One decimal under 10" so a row's measured, forecast and error visibly add up. */
 const precise = (x: number | null) => (x == null ? '–' : `${Math.abs(x) < 10 ? Math.abs(x).toFixed(1) : Math.round(Math.abs(x))}"`)
 
-function Totals({ l }: { l: PastLocation }) {
-  const items = [['24h', l.last24In], ['48h', l.last48In], ['7 days', lastDaysTotal(l.days, 7)], ['Season', l.seasonIn]] as const
+/** Live 3–48 h totals for one location (null while loading or unavailable). */
+function useRecent(id: string, l: PastLocation | undefined): RecentSnow | null {
+  const [recent, setRecent] = useState<RecentSnow | null>(null)
+  useEffect(() => {
+    if (!l) return
+    let live = true
+    const loc = LOCATIONS_BY_ID.get(id)
+    const fallback = { lat: loc?.lat ?? 0, lon: loc?.lon ?? 0, elevFt: loc ? Math.round((loc.baseFt + loc.summitFt) / 2) : 9000 }
+    getRecent(id, l, fallback).then(r => live && setRecent(r))
+    return () => { live = false }
+  }, [id, l])
+  return recent
+}
+
+function Totals({ id, l }: { id: string; l: PastLocation }) {
+  const recent = useRecent(id, l)
+  const t = recent?.totals
+  // Live readings beat the 5am file for 24/48 h; the file fills in if the live call fails.
+  const h48 = t?.[48] ?? l.last48In
+  // The daily file lags today's snow, so longer totals are at least the live 48 h.
+  const atLeast = (v: number | null) => (v == null ? h48 : h48 == null ? v : Math.max(v, h48))
+  const items = [
+    ['3h', t?.[3] ?? null], ['6h', t?.[6] ?? null], ['12h', t?.[12] ?? null], ['24h', t?.[24] ?? l.last24In],
+    ['48h', h48], ['7 days', atLeast(lastDaysTotal(l.days, 7))], ['Season', atLeast(l.seasonIn)],
+  ] as const
   return (
-    <div className="past-totals">
-      {items.map(([label, v]) => (
-        <div key={label} className={v != null && v >= 6 ? 'total big' : 'total'}>
-          <span className="total-val">{amount(v)}</span>
-          <span className="total-label">{label}</span>
+    <>
+      <div className="past-totals">
+        {items.map(([label, v], i) => (
+          <div key={label} className={`total${v != null && v >= 6 ? ' big' : ''}${i < 3 ? ' short' : ''}`}>
+            <span className="total-val">{recent || i >= 3 ? amount(v) : '·'}</span>
+            <span className="total-label">{label}</span>
+          </div>
+        ))}
+      </div>
+      {recent && (
+        <div className="recent-source">
+          <span className={`live-dot${recent.source === 'estimate' ? ' est' : ''}`} />
+          {recent.source === 'snotel' ? 'Live from hourly SNOTEL snow depth' : 'Short windows are a model estimate (gauge reports daily)'}
+          {recent.asOf && ` · ${new Date(recent.asOf).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Denver' })}`}
         </div>
-      ))}
-    </div>
+      )}
+    </>
   )
 }
 
@@ -53,7 +86,7 @@ function PastCard({ id, l }: { id: string; l: PastLocation }) {
     <a className="fav-card" href={`#/past/${id}`}>
       <div className="fav-name">{l.name}{l.estimate && <span className="badge">estimate</span>}</div>
       <div className="fav-sub">{stationLabel(l)}</div>
-      <Totals l={l} />
+      <Totals id={id} l={l} />
       <ErrorLine l={l} />
     </a>
   )
@@ -151,7 +184,7 @@ export function PastDetail({ id }: { id: string }) {
       {l && (
         <>
           {l.estimate && <p className="muted small">No station within 15 km, so "measured" here is a model-analysis estimate.</p>}
-          <div className="fav-card past-summary"><Totals l={l} /></div>
+          <div className="fav-card past-summary"><Totals id={id} l={l} /></div>
 
           <section>
             <h2 className="section-title">Last 30 days · measured vs forecast</h2>

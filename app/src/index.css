@@ -499,3 +499,168 @@ a.fav-card::after {
 .map-screen .maplibregl-ctrl-bottom-right { bottom: calc(var(--tab-h) + env(safe-area-inset-bottom) + 18px); }
 .past-summary { margin-top: 16px; }
 .past-summary .past-totals { margin-top: 0; }
+
+/* Short live windows on the Past tab */
+.past-totals { row-gap: 10px; }
+.past-totals .total-val { font-size: 1.4rem; }
+.recent-source { display: flex; align-items: center; gap: 6px; margin-top: 10px; font-size: 0.7rem; color: var(--text-muted); }
+.live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--good); box-shadow: 0 0 0 0 var(--good); animation: pulse 2s ease-out infinite; flex: none; }
+.live-dot.est { background: var(--text-muted); animation: none; }
+@keyframes pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--good) 60%, transparent); } 100% { box-shadow: 0 0 0 7px transparent; } }
+
+/* Theme button (Home header) */
+.theme-toggle {
+  margin-left: auto; display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px 0 10px;
+  border-radius: 999px; cursor: pointer; font-size: 0.75rem; font-weight: 650; color: var(--text);
+  background: linear-gradient(180deg, var(--sheen), transparent 45%), var(--glass);
+  border: 1px solid var(--glass-edge); box-shadow: inset 0 1px 0 var(--glass-rim), var(--shadow);
+  -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur);
+  transition: transform 0.15s var(--ease);
+}
+.theme-toggle svg { width: 18px; height: 18px; color: var(--accent); }
+.theme-toggle:active { transform: scale(0.94); }
+/* Smooth cross-fade when switching themes. */
+:root { transition: background-color 0.4s; }
+.sky, .total-card, .tab-bar { transition: background 0.4s, border-color 0.4s; }
+.fav-card { transition: transform 0.25s var(--ease), box-shadow 0.25s var(--ease), background 0.4s, border-color 0.4s; }
+
+/* ── Storm mode: shiny snowfall when a favorite expects snow in the next 24 h ── */
+:root { --crystal-mid: #9fd4ff; --storm-halo: rgba(170, 215, 255, 0.85); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --crystal-mid: #b9a8ff; --storm-halo: rgba(170, 210, 255, 0.7); } }
+:root[data-theme="dark"] { --crystal-mid: #b9a8ff; --storm-halo: rgba(170, 210, 255, 0.7); }
+
+.backdrop.storm .glow-a { animation-duration: 16s; }
+.backdrop.storm .sky { filter: saturate(1.15); }
+.storm-sway { position: absolute; inset: 0; animation: sway 6s ease-in-out infinite alternate; will-change: transform; }
+@keyframes sway { from { transform: translate3d(-14px, 0, 0); } to { transform: translate3d(14px, 0, 0); } }
+/* Glowing flakes: white core, icy halo. */
+.storm-glow {
+  top: -300px;
+  background-image:
+    radial-gradient(circle at 30px 40px, #fff 0 1.6px, var(--storm-halo) 2.4px, transparent 5px),
+    radial-gradient(circle at 150px 120px, #fff 0 2.2px, var(--storm-halo) 3.2px, transparent 7px),
+    radial-gradient(circle at 250px 30px, #fff 0 1.3px, var(--storm-halo) 2px, transparent 4.5px),
+    radial-gradient(circle at 90px 230px, #fff 0 2.6px, var(--storm-halo) 3.6px, transparent 8px),
+    radial-gradient(circle at 210px 190px, #fff 0 1.5px, var(--storm-halo) 2.3px, transparent 5px);
+  background-size: 300px 300px;
+  animation: storm-fall 9s linear infinite;
+}
+@keyframes storm-fall { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(0, 300px, 0); } }
+/* Twinkling glints. */
+.storm-sparkle {
+  top: -260px;
+  background-image:
+    radial-gradient(circle at 60px 80px, #fff 0 0.9px, transparent 2.5px),
+    radial-gradient(circle at 190px 20px, #fff 0 0.8px, transparent 2px),
+    radial-gradient(circle at 120px 200px, #fff 0 1px, transparent 2.6px);
+  background-size: 240px 260px;
+  animation: storm-sparkle-fall 16s linear infinite, twinkle 1.8s ease-in-out infinite alternate;
+}
+@keyframes storm-sparkle-fall { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(0, 260px, 0); } }
+@keyframes twinkle { from { opacity: 0.35; } to { opacity: 1; } }
+
+.crystals { position: absolute; inset: 0; }
+.crystal {
+  position: absolute; top: -40px; display: block; aspect-ratio: 1;
+  animation-name: crystal-fall, shimmer-glow; animation-timing-function: linear, ease-in-out;
+  animation-iteration-count: infinite, infinite; animation-direction: normal, alternate;
+  will-change: transform, opacity;
+}
+.crystal svg { width: 100%; height: 100%; display: block; filter: drop-shadow(0 0 4px var(--storm-halo)); }
+@keyframes crystal-fall {
+  from { transform: translate3d(0, 0, 0) rotate(0deg); }
+  to { transform: translate3d(var(--sway), 110vh, 0) rotate(calc(var(--spin) * 240deg)); }
+}
+@keyframes shimmer-glow { from { opacity: 0.45; } to { opacity: 0.95; } }
+
+/* Home banner when storm mode is on. */
+.storm-banner {
+  position: relative; overflow: hidden; display: flex; align-items: center; gap: 10px;
+  margin-top: 16px; padding: 10px 14px; border-radius: 16px; font-size: 0.85rem;
+  background: linear-gradient(120deg, color-mix(in srgb, var(--ice-1) 22%, transparent), color-mix(in srgb, var(--ice-2) 18%, transparent)), var(--glass);
+  border: 1px solid color-mix(in srgb, var(--ice-1) 35%, transparent);
+  box-shadow: inset 0 1px 0 var(--glass-rim), 0 10px 30px -14px var(--ice-1);
+  animation: rise 0.5s var(--ease) both;
+}
+.storm-banner::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(105deg, transparent 30%, var(--sheen) 50%, transparent 70%);
+  transform: translateX(-120%); animation: sweep 3.5s ease-in-out infinite;
+}
+.storm-banner svg { width: 22px; height: 22px; color: var(--accent); flex: none; animation: spin 12s linear infinite; }
+.storm-banner b { font-family: var(--display); font-weight: 650; }
+
+@media (prefers-reduced-motion: reduce) {
+  .storm-sway, .storm-sparkle, .crystals { display: none; }
+}
+
+/* ── Spicy Casita Special (easter egg) ───────────────────────────────────── */
+.spicy {
+  position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; overflow: hidden;
+  padding: calc(env(safe-area-inset-top) + 12px) 16px calc(env(safe-area-inset-bottom) + 12px);
+  background: radial-gradient(120% 80% at 50% 0%, #ffb347 0%, #ff4e50 38%, #7a1fa2 75%, #1b0b3a 100%);
+  animation: spicy-in 0.45s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+@keyframes spicy-in { from { opacity: 0; transform: scale(1.08); } }
+.spicy-rays {
+  position: absolute; width: 220vmax; height: 220vmax; left: 50%; top: 30%; margin: -110vmax 0 0 -110vmax;
+  background: repeating-conic-gradient(rgba(255, 255, 255, 0.13) 0deg 9deg, transparent 9deg 18deg);
+  animation: spin 30s linear infinite;
+}
+.spicy-confetti span {
+  position: absolute; top: -40px; left: var(--x); font-size: 22px;
+  animation: confetti var(--t) linear var(--d) infinite;
+}
+@keyframes confetti { to { transform: translate3d(30px, 110vh, 0) rotate(540deg); } }
+
+.spicy-card {
+  position: relative; width: min(100%, 420px); text-align: center; color: #fff;
+  padding: 18px 16px 16px; border-radius: 28px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.06));
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 30px 60px -20px rgba(40, 0, 60, 0.7);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+}
+.spicy-title { display: flex; flex-direction: column; align-items: center; gap: 0; font-size: 2.6rem; line-height: 0.95; font-weight: 800; letter-spacing: 0.02em; }
+.spicy-word { display: block; white-space: nowrap; }
+.spicy-letter {
+  display: inline-block;
+  background: linear-gradient(180deg, #fff6a8, #ffd23f 40%, #ff7a00 75%, #ff2d2d);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  -webkit-text-stroke: 1.2px #5a0018;
+  filter: drop-shadow(0 3px 0 #5a0018) drop-shadow(0 0 12px rgba(255, 200, 0, 0.6));
+  animation: letter-bounce 1.1s ease-in-out calc(var(--n) * 0.06s) infinite;
+}
+@keyframes letter-bounce { 0%, 100% { transform: translateY(0) rotate(0); } 30% { transform: translateY(-9px) rotate(-6deg); } 60% { transform: translateY(2px) rotate(4deg); } }
+
+.spicy-scene { width: 100%; max-height: 38vh; margin: 4px 0 -4px; overflow: visible; }
+.sp-rider { transform-box: view-box; transform-origin: 210px 200px; animation: carve 1.6s ease-in-out infinite; }
+@keyframes carve { 0%, 100% { transform: translate(0, 0) rotate(-3deg); } 50% { transform: translate(-6px, -14px) rotate(4deg); } }
+.sp-scarf { transform-box: fill-box; transform-origin: left center; animation: flap 0.35s ease-in-out infinite alternate; }
+@keyframes flap { to { transform: skewY(-8deg) scaleX(1.08); } }
+.sp-steam path { animation: steam 1.4s ease-out infinite; }
+.sp-steam path + path { animation-delay: 0.6s; }
+@keyframes steam { from { transform: translateY(6px); opacity: 0; } 40% { opacity: 0.9; } to { transform: translateY(-14px); opacity: 0; } }
+.sp-spray circle { transform-box: fill-box; animation: spray 0.9s ease-out calc(var(--i) * 0.065s) infinite; }
+@keyframes spray { from { transform: translate(0, 0) scale(0.6); opacity: 1; } to { transform: translate(90px, -55px) scale(1.6); opacity: 0; } }
+.sp-wave { animation: wave 1.6s ease-in-out infinite; transform-box: fill-box; transform-origin: center bottom; }
+@keyframes wave { 50% { transform: scaleY(1.12) translateX(-6px); } }
+.sp-speed { animation: speed 0.6s linear infinite; }
+@keyframes speed { from { transform: translateX(0); opacity: 0.8; } to { transform: translateX(-60px); opacity: 0; } }
+
+.spicy-dump { margin: 6px 0 10px; font-size: 1.05rem; line-height: 1.35; text-shadow: 0 2px 8px rgba(60, 0, 40, 0.5); }
+.spicy-inches { font-family: var(--display); font-size: 1.6rem; color: #fff6a8; }
+.spicy-report { list-style: none; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 0 0 14px; padding: 0; }
+.spicy-report li { display: flex; flex-direction: column; padding: 8px 4px; border-radius: 14px; background: rgba(0, 0, 0, 0.18); font-size: 0.72rem; }
+.spicy-report span { opacity: 0.8; text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.62rem; }
+.spicy-report b { font-size: 0.78rem; }
+.spicy-go {
+  width: 100%; padding: 14px; border: 0; border-radius: 18px; cursor: pointer;
+  font-family: var(--display); font-size: 1.3rem; font-weight: 800; letter-spacing: 0.04em; color: #5a0018;
+  background: linear-gradient(180deg, #fff6a8, #ffd23f 50%, #ff9f1c);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.7), 0 6px 0 #b34700, 0 14px 30px -6px rgba(90, 0, 24, 0.6);
+  animation: go-pulse 1.2s ease-in-out infinite;
+}
+.spicy-go:active { transform: translateY(4px); box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.7), 0 2px 0 #b34700; }
+@keyframes go-pulse { 50% { transform: scale(1.03); } }
+.spicy-fine { margin: 10px 0 0; font-size: 0.7rem; opacity: 0.75; }
