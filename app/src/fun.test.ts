@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { LOCATIONS_BY_ID, type SnowLocation } from './data/locations'
 import type { PastLocation, PastSnowfall } from './past'
 import { cleanWindows, depthGain, type Reading } from './recent'
-import { createShakeDetector, globeParams } from './globe'
+import { AGITATE_MIN, createMotionFilter, globeParams, STIR_MIN } from './globe'
 import { spicyForced, spicyHits, tapCounter } from './spicy'
 import { stormHits } from './storm'
 import { nextTheme } from './theme'
@@ -118,25 +118,45 @@ describe('snow globe', () => {
     expect(globeParams(100)).toEqual(globeParams(36))
   })
 
-  it('detects a shake from two sharp jolts, with direction, and ignores gentle motion', () => {
-    const shakes: [number, number][] = []
-    const feed = createShakeDetector((dir, power) => shakes.push([dir, power]))
-    const still = { x: 0, y: 9.8, z: 0 }
-    feed(still, 0)
-    feed({ x: 1, y: 9.6, z: 0.5 }, 50) // walking around: nothing
-    expect(shakes).toHaveLength(0)
-    feed({ x: 22, y: 9.8, z: 0 }, 100)
-    feed({ x: -2, y: 9.8, z: 0 }, 180)
-    feed({ x: 24, y: 9.8, z: 0 }, 260)
-    expect(shakes).toHaveLength(1)
-    expect(shakes[0][0]).toBe(1)
-    expect(shakes[0][1]).toBeGreaterThanOrEqual(0.5)
+  it('reacts on the first sample, and a gentle 0.3 g shake is enough to stir the snow', () => {
+    const filter = createMotionFilter()
+    filter({ x: 0, y: 9.8, z: 0 }) // held upright, still
+    const m = filter({ x: 3.2, y: 9.8, z: 0 }) // a light flick to the right
+    expect(m.magnitude).toBeGreaterThan(AGITATE_MIN)
+    expect(m.magnitude).toBeGreaterThanOrEqual(STIR_MIN * 0.9)
+    expect(m.accel.x).toBeGreaterThan(0)
   })
 
-  it('has a cooldown so one shake is one burst', () => {
-    let n = 0
-    const feed = createShakeDetector(() => n++)
-    ;[[0, 0], [20, 100], [0, 200], [20, 300], [0, 400]].forEach(([x, t]) => feed({ x, y: 9.8, z: 0 }, t))
-    expect(n).toBe(1)
+  it('ignores the phone just sitting still', () => {
+    const filter = createMotionFilter()
+    let m = filter({ x: 0, y: 9.8, z: 0 })
+    for (let i = 0; i < 5; i++) m = filter({ x: 0.05, y: 9.8, z: 0 })
+    expect(m.magnitude).toBeLessThan(AGITATE_MIN)
+  })
+
+  it('uses gravity-free acceleration from the browser when it has one', () => {
+    const m = createMotionFilter()({ x: 0, y: 9.8, z: 0 }, { x: 0, y: 2, z: 0 })
+    expect(m.magnitude).toBe(2)
+    expect(m.accel.y).toBe(-2) // device "up" is screen "up" (negative y)
+  })
+
+  it('finds "down" on screen whichever sign convention the browser uses, and follows tilt', () => {
+    // Spec convention: +9.8 on y when upright. iOS Safari has reported -9.8.
+    for (const g of [9.8, -9.8]) {
+      const filter = createMotionFilter()
+      const first = filter({ x: 0, y: g, z: 0 }).down
+      expect(first.x).toBeCloseTo(0)
+      expect(first.y).toBeCloseTo(1)
+      // Tip the phone so its right side is lower: snow should drift right.
+      let m = filter({ x: 0, y: g, z: 0 })
+      for (let i = 0; i < 60; i++) m = filter({ x: -Math.sign(g) * 6.9, y: g * 0.7, z: 0 })
+      expect(m.down.x).toBeGreaterThan(0.5)
+    }
+  })
+
+  it('falls back to screen-down and low tilt when the phone lies flat', () => {
+    const m = createMotionFilter()({ x: 0, y: 0, z: 9.8 })
+    expect(m.down).toEqual({ x: 0, y: 1 })
+    expect(m.tilt).toBeLessThan(0.1)
   })
 })

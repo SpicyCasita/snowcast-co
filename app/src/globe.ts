@@ -10,32 +10,51 @@ export function globeParams(forecastIn: number): { count: number; floatSeconds: 
 }
 
 export interface Accel { x: number; y: number; z: number }
-export interface ShakeOptions { threshold?: number; jolts?: number; windowMs?: number; cooldownMs?: number }
+
+/** Any linear acceleration above this (m/s², ~0.15 g) pushes flakes already in the air. */
+export const AGITATE_MIN = 1.5
+/** A gentle shake above this (m/s², ~0.25 g) stirs settled snow up into the globe. */
+export const STIR_MIN = 2.5
+
+/** A motion sample in screen coordinates (x right, y down), in m/s². */
+export interface GlobeMotion {
+  /** The phone's own acceleration (gravity removed): the snow lags the glass, so it pushes the other way. */
+  accel: { x: number; y: number }
+  /** Size of that acceleration in 3-D. */
+  magnitude: number
+  /** Which way is down on screen, as a unit vector, plus how much of gravity lies in the screen plane (0–1). */
+  down: { x: number; y: number }
+  tilt: number
+}
 
 /**
- * Feed it accelerometer samples (m/s², gravity included). It calls onShake when it sees `jolts` sharp
- * changes within `windowMs`, with a horizontal direction (-1 left … 1 right) and a power of 0.5–2.
- * Direction comes from the first jolt: a back-and-forth shake's later jolts cancel it out.
+ * Turns raw DeviceMotion samples into globe motion, reacting on the very first sample.
+ * Uses the browser's gravity-free `acceleration` when it has one (iOS does); otherwise it separates
+ * gravity from `accelerationIncludingGravity` with a fast low-pass filter.
  */
-export function createShakeDetector(onShake: (dir: number, power: number) => void, opts: ShakeOptions = {}) {
-  const { threshold = 14, jolts = 2, windowMs = 800, cooldownMs = 700 } = opts
-  let prev: Accel | null = null
-  let hits: { t: number; dx: number; mag: number }[] = []
-  let last = -Infinity
-  return (a: Accel, t: number) => {
-    if (prev) {
-      const dx = a.x - prev.x
-      const mag = Math.hypot(dx, a.y - prev.y, a.z - prev.z)
-      if (mag > threshold) hits.push({ t, dx, mag })
-    }
-    prev = a
-    hits = hits.filter(h => t - h.t < windowMs)
-    if (hits.length >= jolts && t - last > cooldownMs) {
-      last = t
-      const dx = hits[0].dx
-      const power = Math.min(2, Math.max(0.5, Math.max(...hits.map(h => h.mag)) / (threshold * 1.5)))
-      hits = []
-      onShake(dx === 0 ? 0 : Math.sign(dx), power)
+export function createMotionFilter(smoothing = 0.12) {
+  let gravity: Accel | null = null
+  // Browsers disagree on sign (the spec reports +9.8 "up" on the y axis when held upright; iOS Safari
+  // has historically reported −9.8). Calibrate from the first clearly upright-ish sample, since people
+  // hold the phone top-up when they start shaking.
+  let sign: number | null = null
+  return (incl: Accel, linear?: Accel | null): GlobeMotion => {
+    gravity = gravity
+      ? { x: gravity.x + (incl.x - gravity.x) * smoothing, y: gravity.y + (incl.y - gravity.y) * smoothing, z: gravity.z + (incl.z - gravity.z) * smoothing }
+      : { ...incl }
+    if (sign == null && Math.abs(incl.y) > 3) sign = Math.sign(incl.y)
+    const s = sign ?? 1
+    const lin = linear ?? { x: incl.x - gravity.x, y: incl.y - gravity.y, z: incl.z - gravity.z }
+    // Device axes: x right, y toward the top of the screen; screen y grows downward.
+    const downX = -s * gravity.x
+    const downY = s * gravity.y
+    const inPlane = Math.hypot(downX, downY)
+    const g = Math.hypot(gravity.x, gravity.y, gravity.z) || 9.81
+    return {
+      accel: { x: s * lin.x, y: -s * lin.y },
+      magnitude: Math.hypot(lin.x, lin.y, lin.z),
+      down: inPlane > 0.5 ? { x: downX / inPlane, y: downY / inPlane } : { x: 0, y: 1 },
+      tilt: Math.min(1, inPlane / g),
     }
   }
 }
