@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { Defs, SCENES, type Scene } from './scenes'
 import './sendit.css'
+import './sendit2.css'
 
 const LAST_KEY = 'snowcast.lastSendIt'
 

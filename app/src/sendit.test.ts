@@ -3,9 +3,9 @@ import { SCENES } from './components/sendit/scenes'
 import { captionAt, forcedScene, pickScene } from './components/sendit/SendItShow'
 
 describe('SEND IT scenes', () => {
-  it('has ten scenes with ids 1–10', () => {
-    expect(SCENES.map(s => s.id)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
-    expect(new Set(SCENES.map(s => s.title)).size).toBe(10)
+  it('has twenty scenes with ids 1–20 and unique titles', () => {
+    expect(SCENES.map(s => s.id)).toEqual(Array.from({ length: 20 }, (_, i) => i + 1))
+    expect(new Set(SCENES.map(s => s.title)).size).toBe(20)
   })
 
   it('runs each scene 8–15 seconds', () => {
@@ -38,21 +38,22 @@ describe('SEND IT scenes', () => {
 
 describe('picking a scene', () => {
   it('never repeats the last one', () => {
-    for (let last = 1; last <= 10; last++) {
+    for (let last = 1; last <= 20; last++) {
       for (const r of [0, 0.3, 0.6, 0.9999]) expect(pickScene(last, () => r).id).not.toBe(last)
     }
   })
 
   it('can reach every scene', () => {
     const seen = new Set<number>()
-    for (let i = 0; i < 200; i++) seen.add(pickScene(null, () => (i % 10) / 10 + 0.01).id)
-    expect(seen.size).toBe(10)
+    for (let i = 0; i < 400; i++) seen.add(pickScene(null, () => (i % 20) / 20 + 0.01).id)
+    expect(seen.size).toBe(20)
   })
 
   it('reads ?sendit=N for testing', () => {
     expect(forcedScene('https://x/snowcast-co/?sendit=7#/')?.title).toBe('Face Shot')
     expect(forcedScene('https://x/snowcast-co/#/?sendit=10')?.title).toBe('Jalapeño Jr.')
-    expect(forcedScene('https://x/snowcast-co/?sendit=11')).toBeNull()
+    expect(forcedScene('https://x/snowcast-co/?sendit=17')?.title).toBe('Wedgie Lift')
+    expect(forcedScene('https://x/snowcast-co/?sendit=21')).toBeNull()
     expect(forcedScene('https://x/snowcast-co/#/')).toBeNull()
   })
 })

@@ -4,47 +4,13 @@
  * (percent of the scene). Groups with a className are moved by CSS; they draw their art around (0, 0).
  */
 import type { ReactNode } from 'react'
-import { Board, Casita, Duck, Heart, Hills, Marmot, Penguin, Pepper, Snowman } from './cast'
+import { SCENES2 } from './scenes2'
+import { Board, Casita, Defs, Duck, Heart, Hills, Marmot, Penguin, Pepper, Poof, Sky, Snowman, Stars } from './cast'
 
 export interface Caption { from: number; to: number; text: string }
 export interface Scene { id: number; title: string; seconds: number; captions: Caption[]; art: () => ReactNode }
 
-const Sky = ({ night = false }: { night?: boolean }) => (
-  <rect width="400" height="500" fill={night ? 'url(#si-night)' : 'url(#si-day)'} />
-)
-
-const Defs = () => (
-  <defs>
-    <linearGradient id="si-day" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stopColor="#8fd0ff" />
-      <stop offset="0.7" stopColor="#dff1ff" />
-      <stop offset="1" stopColor="#ffffff" />
-    </linearGradient>
-    <linearGradient id="si-night" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stopColor="#0b1033" />
-      <stop offset="1" stopColor="#3a2a6e" />
-    </linearGradient>
-  </defs>
-)
-
-const Poof = ({ className }: { className: string }) => (
-  <g className={className}>
-    <circle r="22" fill="#fff" />
-    <circle cx="-24" cy="6" r="16" fill="#fff" />
-    <circle cx="24" cy="4" r="18" fill="#fff" />
-    <circle cx="0" cy="-18" r="14" fill="#fff" />
-  </g>
-)
-
-const Stars = () => (
-  <g fill="#fff">
-    {[[40, 50], [120, 90], [220, 40], [310, 80], [360, 140], [70, 160], [270, 150]].map(([x, y]) => (
-      <circle key={`${x}${y}`} cx={x} cy={y} r="1.8" className="si-twinkle" />
-    ))}
-  </g>
-)
-
-export const SCENES: Scene[] = [
+const ORIGINALS: Scene[] = [
   {
     id: 1,
     title: 'Yard Sale',
@@ -422,5 +388,8 @@ export const SCENES: Scene[] = [
     ),
   },
 ]
+
+/** All SEND IT cartoons: the cute ten, then the crude ten (scenes2.tsx). */
+export const SCENES: Scene[] = [...ORIGINALS, ...SCENES2]
 
 export { Defs }

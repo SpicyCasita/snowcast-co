@@ -1,0 +1,438 @@
+/* SEND IT cartoons 11–20 (the crude ones). Same conventions as sendit.css. */
+
+/* Rainbow barf draws itself: each stream's dash offset runs 1 → 0 on its scene's timeline. */
+.s11-barf .barf-stream { animation: s11-barf var(--dur) linear both; }
+@keyframes s11-barf { 0%, 55% { stroke-dashoffset: 1; } 68%, 100% { stroke-dashoffset: 0; } }
+.s20-barf-l .barf-stream { animation: s20-barf-l var(--dur) linear both; }
+@keyframes s20-barf-l { 0%, 58% { stroke-dashoffset: 1; } 64%, 100% { stroke-dashoffset: 0; } }
+.s20-barf-r .barf-stream { animation: s20-barf-r var(--dur) linear both; }
+@keyframes s20-barf-r { 0%, 63% { stroke-dashoffset: 1; } 69%, 100% { stroke-dashoffset: 0; } }
+
+/* Shared on/off switches (percent of the scene). */
+@keyframes on-0-45 { 0%, 45% { opacity: 1; } 46%, 100% { opacity: 0; } }
+@keyframes off-0-45 { 0%, 45% { opacity: 0; } 46%, 100% { opacity: 1; } }
+
+/* ── 11 · Yellow Snow ── */
+.s11-marmot { animation-name: s11-marmot; }
+@keyframes s11-marmot {
+  0% { transform: translate(-50px, 392px); }
+  18% { transform: translate(168px, 392px); }
+  22% { transform: translate(176px, 398px) scale(1, 0.9); }
+  26%, 34%, 42% { transform: translate(182px, 402px) rotate(8deg); }
+  30%, 38%, 44% { transform: translate(182px, 396px) rotate(3deg); }
+  47%, 51% { transform: translate(180px, 392px) rotate(-5deg); }
+  49%, 53% { transform: translate(186px, 392px) rotate(5deg); }
+  55%, 75% { transform: translate(186px, 392px) rotate(-8deg); }
+  82%, 100% { transform: translate(150px, 396px) rotate(0); }
+}
+.s11-plain { animation-name: on-0-45; }
+.s11-sick { animation-name: off-0-45; }
+.s11-tongue { animation-name: s11-tongue; }
+@keyframes s11-tongue {
+  0%, 25% { opacity: 0; transform: scale(1, 0.4); }
+  27%, 31%, 35%, 39%, 43% { opacity: 1; transform: scale(1, 1.2); }
+  29%, 33%, 37%, 41% { opacity: 1; transform: scale(1, 0.6); }
+  45%, 100% { opacity: 0; }
+}
+.s11-puddle { animation-name: s11-puddle; transform-origin: 334px 436px; }
+@keyframes s11-puddle { 0%, 66% { opacity: 0; transform: scale(0); } 74%, 100% { opacity: 1; transform: scale(1); } }
+.s11-sign { animation-name: s11-sign; }
+@keyframes s11-sign {
+  0%, 74% { transform: translate(470px, 330px); }
+  86% { transform: translate(286px, 330px); }
+  90%, 98% { transform: translate(290px, 324px); }
+  94%, 100% { transform: translate(290px, 330px); }
+}
+
+/* ── 12 · Bean Rocket ── */
+.s12-pepper { animation-name: s12-pepper; }
+@keyframes s12-pepper {
+  0% { transform: translate(140px, 312px); }
+  4%, 12%, 20% { transform: translate(150px, 312px) rotate(-6deg); }
+  8%, 16%, 24% { transform: translate(146px, 312px) rotate(4deg); }
+  26%, 51% { transform: translate(150px, 312px); }
+  53% { transform: translate(168px, 298px) rotate(-15deg); }
+  70%, 100% { transform: translate(540px, 80px) rotate(-30deg); }
+}
+.s12-jiggle { animation-name: s12-jiggle; }
+@keyframes s12-jiggle {
+  0%, 43% { transform: none; }
+  44%, 46%, 48%, 50% { transform: translate(-3px, 0) scale(1.04, 0.97); }
+  45%, 47%, 49%, 51% { transform: translate(3px, 0) scale(0.97, 1.04); }
+  52%, 100% { transform: none; }
+}
+.s12-can { animation-name: s12-can; }
+@keyframes s12-can {
+  0%, 25% { opacity: 0; transform: none; }
+  27% { opacity: 1; transform: none; }
+  33%, 43% { opacity: 1; transform: translate(-22px, -30px) rotate(-120deg); }
+  46%, 100% { opacity: 0; }
+}
+.s12-trail { animation-name: s12-trail; }
+@keyframes s12-trail {
+  0%, 51% { opacity: 0; transform: translate(130px, 352px); }
+  53% { opacity: 1; transform: translate(130px, 340px) rotate(-15deg); }
+  70% { opacity: 1; transform: translate(500px, 120px) rotate(-30deg); }
+  72%, 100% { opacity: 0; transform: translate(500px, 120px); }
+}
+.s12-cloud { animation-name: s12-cloud; }
+/* Bursts from the pepper's tail and drifts right, so the knocked-out penguin stays in view. */
+@keyframes s12-cloud {
+  0%, 51% { opacity: 0; transform: translate(140px, 340px) scale(0); }
+  55% { opacity: 1; transform: translate(150px, 334px) scale(1.5); }
+  100% { opacity: 0.85; transform: translate(190px, 320px) scale(1.8); }
+}
+.s12-stink { animation-name: s12-stink; }
+@keyframes s12-stink {
+  0%, 56% { opacity: 0; transform: translate(185px, 285px); }
+  62%, 76%, 90% { opacity: 1; transform: translate(185px, 270px); }
+  69%, 83%, 100% { opacity: 1; transform: translate(185px, 260px); }
+}
+.s12-flies { animation-name: s12-flies; }
+@keyframes s12-flies {
+  0%, 60% { opacity: 0; transform: translate(190px, 300px); }
+  63%, 71%, 79%, 87%, 95% { opacity: 1; transform: translate(198px, 292px) rotate(40deg); }
+  67%, 75%, 83%, 91%, 100% { opacity: 1; transform: translate(182px, 306px) rotate(-30deg); }
+}
+.s12-penguin-ok { animation-name: s12-ok; }
+@keyframes s12-ok { 0%, 56% { opacity: 1; } 57%, 100% { opacity: 0; } }
+.s12-penguin-out { animation-name: s12-out; }
+@keyframes s12-out { 0%, 56% { opacity: 0; } 57%, 100% { opacity: 1; } }
+.s12-braap { animation-name: s12-braap; }
+@keyframes s12-braap {
+  0%, 51% { opacity: 0; transform: scale(0); }
+  54% { opacity: 1; transform: scale(1.35) rotate(-4deg); }
+  58%, 70% { opacity: 1; transform: scale(1); }
+  76%, 100% { opacity: 0; transform: scale(1.1); }
+}
+.s12-rumble { animation-name: s12-rumble; }
+@keyframes s12-rumble {
+  0%, 43% { opacity: 0; }
+  44%, 48% { opacity: 1; transform: rotate(-4deg); }
+  46%, 50% { opacity: 1; transform: rotate(4deg); }
+  52%, 100% { opacity: 0; }
+}
+
+/* ── 13 · Pants Split ── */
+.s13-bend { animation-name: s13-bend; transform-origin: 0 58px; }
+@keyframes s13-bend {
+  0% { transform: rotate(0); }
+  30%, 36% { transform: rotate(28deg); }
+  40% { transform: rotate(-8deg); }
+  44%, 100% { transform: rotate(0); }
+}
+.s13-before { animation-name: s13-before; }
+@keyframes s13-before { 0%, 37% { opacity: 1; } 38%, 100% { opacity: 0; } }
+.s13-after { animation-name: s13-after; }
+@keyframes s13-after { 0%, 37% { opacity: 0; } 38%, 100% { opacity: 1; } }
+.s13-rip { animation-name: s13-rip; }
+@keyframes s13-rip {
+  0%, 37% { opacity: 0; transform: scale(0); }
+  40% { opacity: 1; transform: scale(1.4); }
+  44%, 56% { opacity: 1; transform: scale(1); }
+  60%, 100% { opacity: 0; }
+}
+.s13-wind { animation-name: s13-wind; }
+@keyframes s13-wind {
+  0%, 54% { opacity: 0; transform: translate(-200px, 0); }
+  56% { opacity: 1; transform: translate(-200px, 0); }
+  76% { opacity: 1; transform: translate(420px, 0); }
+  78%, 100% { opacity: 0; transform: translate(420px, 0); }
+}
+.s13-laugh { animation-name: s13-laugh; }
+.s13-laugh2 { animation-name: s13-laugh2; }
+@keyframes s13-laugh {
+  0%, 54% { opacity: 0; transform: translate(0, 24px); }
+  58%, 66%, 74%, 82%, 90%, 98% { opacity: 1; transform: rotate(-10deg) translate(0, -4px); }
+  62%, 70%, 78%, 86%, 94%, 100% { opacity: 1; transform: rotate(10deg); }
+}
+@keyframes s13-laugh2 {
+  0%, 56% { opacity: 0; transform: translate(0, 24px); }
+  60%, 68%, 76%, 84%, 92% { opacity: 1; transform: rotate(12deg) translate(0, -6px); }
+  64%, 72%, 80%, 88%, 96%, 100% { opacity: 1; transform: rotate(-8deg); }
+}
+
+/* ── 14 · Porta-Potty Launch ── */
+.s14-pepper { animation-name: s14-pepper; }
+@keyframes s14-pepper {
+  0% { transform: translate(-60px, 330px); }
+  6%, 14% { transform: translate(40px, 318px); }
+  10% { transform: translate(140px, 330px); }
+  18% { transform: translate(250px, 330px); }
+  20% { opacity: 1; transform: translate(258px, 326px) scale(0.9); }
+  21%, 100% { opacity: 0; transform: translate(258px, 326px); }
+}
+.s14-potty { animation-name: s14-potty; }
+@keyframes s14-potty {
+  0%, 56% { transform: translate(262px, 392px); }
+  58% { transform: translate(262px, 384px); }
+  76%, 100% { transform: translate(262px, -240px) rotate(-8deg); }
+}
+.s14-shake { animation-name: s14-shake; transform-origin: 0 20px; }
+@keyframes s14-shake {
+  0%, 23% { transform: none; }
+  26%, 30%, 34%, 38% { transform: rotate(-2.5deg); }
+  28%, 32%, 36%, 40% { transform: rotate(2.5deg); }
+  42%, 46%, 50%, 54% { transform: rotate(-6deg) translate(-2px, 0); }
+  44%, 48%, 52%, 56% { transform: rotate(6deg) translate(2px, 0); }
+  58%, 100% { transform: none; }
+}
+.s14-exhaust { animation-name: s14-exhaust; }
+@keyframes s14-exhaust {
+  0%, 56% { opacity: 0; transform: scale(0); }
+  59% { opacity: 1; transform: scale(1.5); }
+  76%, 100% { opacity: 1; transform: scale(1.9); }
+}
+.s14-stink { animation-name: s14-stink; }
+@keyframes s14-stink {
+  0%, 25% { opacity: 0; transform: translate(262px, 290px); }
+  32%, 44% { opacity: 1; transform: translate(262px, 280px); }
+  38%, 50% { opacity: 1; transform: translate(262px, 270px); }
+  56%, 100% { opacity: 0; transform: translate(262px, 250px); }
+}
+.s14-brrt { animation-name: s14-brrt; }
+@keyframes s14-brrt { 0%, 33% { opacity: 0; transform: scale(0); } 36%, 44% { opacity: 1; transform: scale(1); } 47%, 100% { opacity: 0; } }
+.s14-plop { animation-name: s14-plop; }
+@keyframes s14-plop { 0%, 46% { opacity: 0; transform: scale(0); } 49%, 55% { opacity: 1; transform: scale(1); } 57%, 100% { opacity: 0; } }
+.s14-wait { animation: s14-wait 0.35s ease-in-out infinite alternate; }
+.s14-wait2 { animation-delay: 0.17s; }
+@keyframes s14-wait { from { transform: translate(0, 0); } to { transform: translate(0, -5px); } }
+.s14-blown { animation-name: s14-blown; }
+@keyframes s14-blown { 0%, 57% { transform: none; } 61%, 100% { transform: translate(-34px, 12px) rotate(-80deg); } }
+.s14-q { animation-name: s14-q; }
+@keyframes s14-q {
+  0%, 80% { opacity: 0; transform: scale(0); }
+  84%, 92%, 100% { opacity: 1; transform: scale(1) translate(0, 0); }
+  88%, 96% { opacity: 1; transform: scale(1.1) translate(0, -6px); }
+}
+
+/* ── 15 · Snot Rocket ── */
+.s15-penguin { animation-name: s15-penguin; }
+@keyframes s15-penguin { 0% { transform: translate(30px, 430px); } 58% { transform: translate(262px, 430px); } 100% { transform: translate(320px, 430px); } }
+.s15-clean { animation-name: s15-clean; }
+@keyframes s15-clean { 0%, 58% { opacity: 1; } 59%, 100% { opacity: 0; } }
+.s15-slimed { animation-name: s15-slimed; }
+@keyframes s15-slimed { 0%, 58% { opacity: 0; } 59%, 100% { opacity: 1; } }
+.s15-sway { animation: s15-sway 2s ease-in-out infinite alternate; }
+@keyframes s15-sway { from { transform: rotate(-3deg); } to { transform: rotate(3deg); } }
+.s15-head { animation-name: s15-head; transform-origin: 0 40px; }
+@keyframes s15-head {
+  0%, 22% { transform: rotate(0); }
+  28%, 44% { transform: rotate(-24deg); }
+  48% { transform: rotate(26deg); }
+  53%, 100% { transform: rotate(0); }
+}
+.s15-calm { animation-name: s15-calm; }
+@keyframes s15-calm { 0%, 23% { opacity: 1; } 24%, 100% { opacity: 0; } }
+.s15-tickle { animation-name: s15-tickle; }
+@keyframes s15-tickle { 0%, 23% { opacity: 0; } 24%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
+.s15-after { animation-name: s15-after; }
+@keyframes s15-after { 0%, 49% { opacity: 0; } 50%, 100% { opacity: 1; } }
+.s15-drip { animation-name: s15-drip; transform-origin: 0 -8px; }
+@keyframes s15-drip {
+  0%, 49% { opacity: 0; transform: scale(1, 0); }
+  52% { opacity: 1; transform: scale(1, 1.2); }
+  60%, 70%, 80%, 90% { opacity: 1; transform: rotate(12deg) scale(1, 1.4); }
+  65%, 75%, 85%, 95%, 100% { opacity: 1; transform: rotate(-12deg) scale(1, 1.5); }
+}
+.s15-flake { animation-name: s15-flake; }
+@keyframes s15-flake {
+  0% { opacity: 1; transform: translate(250px, -20px) rotate(0); }
+  22% { opacity: 1; transform: translate(201px, 110px) rotate(200deg); }
+  24%, 100% { opacity: 0; transform: translate(201px, 110px); }
+}
+.s15-snot { animation-name: s15-snot; }
+@keyframes s15-snot {
+  0%, 47% { opacity: 0; transform: translate(200px, 116px) scale(0.3); }
+  48% { opacity: 1; transform: translate(205px, 125px) scale(0.5); }
+  53% { opacity: 1; transform: translate(236px, 280px) scale(1) rotate(40deg); }
+  58% { opacity: 1; transform: translate(262px, 404px) scale(1.1) rotate(70deg); }
+  59%, 100% { opacity: 0; transform: translate(262px, 404px); }
+}
+.s15-achoo { animation-name: s15-achoo; }
+@keyframes s15-achoo {
+  0%, 47% { opacity: 0; transform: scale(0); }
+  50% { opacity: 1; transform: scale(1.4); }
+  54%, 62% { opacity: 1; transform: scale(1); }
+  66%, 100% { opacity: 0; }
+}
+
+/* ── 16 · Ring of Fire ── */
+.s16-pepper { animation-name: s16-pepper; }
+@keyframes s16-pepper {
+  0% { transform: translate(-60px, 360px); }
+  18% { transform: translate(200px, 360px); }
+  22%, 44% { transform: translate(200px, 368px) scale(1, 0.92); }
+  48%, 52%, 56%, 60% { transform: translate(197px, 380px) scale(1, 0.92); }
+  50%, 54%, 58%, 62% { transform: translate(203px, 384px) scale(1, 0.92); }
+  66% { transform: translate(200px, 404px); }
+  70%, 80%, 90%, 100% { transform: translate(200px, 398px); }
+  75%, 85%, 95% { transform: translate(200px, 403px); }
+}
+.s16-warm { animation-name: s16-warm; }
+@keyframes s16-warm { 0%, 25% { opacity: 1; } 26%, 100% { opacity: 0; } }
+.s16-hot { animation-name: s16-hot; }
+@keyframes s16-hot { 0%, 25% { opacity: 0; } 26%, 68% { opacity: 1; } 69%, 100% { opacity: 0; } }
+.s16-chill { animation-name: s16-chill; }
+@keyframes s16-chill { 0%, 68% { opacity: 0; } 69%, 100% { opacity: 1; } }
+.s16-steam { animation-name: s16-steam; }
+@keyframes s16-steam {
+  0%, 25% { opacity: 0; transform: translate(200px, 400px); }
+  30%, 40%, 50%, 60% { opacity: 1; transform: translate(200px, 392px); }
+  35%, 45%, 55%, 65% { opacity: 1; transform: translate(200px, 378px); }
+  70%, 100% { opacity: 0.6; transform: translate(200px, 360px); }
+}
+.s16-pool { animation-name: s16-pool; }
+@keyframes s16-pool { 0%, 44% { transform: scale(0); } 66%, 100% { transform: scale(1); } }
+.s16-bubbles { animation-name: s16-bubbles; }
+@keyframes s16-bubbles {
+  0%, 55% { opacity: 0; transform: translate(0, 0); }
+  60%, 70%, 80%, 90%, 100% { opacity: 0.9; transform: translate(0, -4px); }
+  65%, 75%, 85%, 95% { opacity: 0.3; transform: translate(0, 2px); }
+}
+.s16-ducks { animation-name: s16-ducks; }
+@keyframes s16-ducks { 0%, 74% { opacity: 0; transform: translate(0, 12px); } 80%, 100% { opacity: 1; transform: none; } }
+.s16-guest-l { animation-name: s16-guest-l; }
+@keyframes s16-guest-l { 0%, 72% { transform: translate(-60px, 400px); } 84%, 100% { transform: translate(72px, 404px); } }
+.s16-guest-r { animation-name: s16-guest-r; }
+@keyframes s16-guest-r { 0%, 72% { transform: translate(460px, 400px); } 84%, 100% { transform: translate(328px, 404px); } }
+.s16-sign { animation-name: s16-sign; }
+@keyframes s16-sign { 0%, 79% { transform: scale(0); } 84% { transform: scale(1.2); } 88%, 100% { transform: scale(1); } }
+
+/* ── 17 · Wedgie Lift ── */
+.s17-idle { animation-name: s17-idle; }
+@keyframes s17-idle { 0%, 19% { opacity: 1; transform: translate(70px, 362px); } 20%, 100% { opacity: 0; transform: translate(70px, 362px); } }
+.s17-ride { animation-name: s17-ride; }
+@keyframes s17-ride {
+  0% { transform: translate(-80px, 412px); }
+  19% { transform: translate(70px, 315px); }
+  70% { transform: translate(300px, 165px); }
+  100% { transform: translate(480px, 48px); }
+}
+.s17-hang { animation-name: s17-hang; }
+@keyframes s17-hang { 0%, 19% { opacity: 0; } 20%, 71% { opacity: 1; } 72%, 100% { opacity: 0; } }
+.s17-dangle { animation: s17-dangle 0.9s ease-in-out infinite alternate; }
+@keyframes s17-dangle { from { transform: rotate(-12deg); } to { transform: rotate(12deg); } }
+.s17-fall { animation-name: s17-fall; }
+@keyframes s17-fall {
+  0%, 71% { opacity: 0; transform: translate(300px, 251px); }
+  72% { opacity: 1; transform: translate(300px, 251px) rotate(0); }
+  82%, 100% { opacity: 1; transform: translate(330px, 392px) rotate(170deg); }
+}
+.s17-poof { animation-name: s17-poof; }
+@keyframes s17-poof {
+  0%, 80% { opacity: 0; transform: translate(330px, 420px) scale(0); }
+  83% { opacity: 1; transform: translate(330px, 416px) scale(1.4); }
+  92%, 100% { opacity: 0; transform: translate(330px, 404px) scale(1.9); }
+}
+.s17-snap { animation-name: s17-snap; }
+@keyframes s17-snap {
+  0%, 70% { opacity: 0; transform: scale(0); }
+  72% { opacity: 1; transform: scale(1.4); }
+  76%, 84% { opacity: 1; transform: scale(1); }
+  88%, 100% { opacity: 0; }
+}
+
+/* ── 18 · Tongue Stuck ── */
+.s18-pepper { animation-name: s18-pepper; }
+@keyframes s18-pepper {
+  0% { transform: translate(150px, 352px); }
+  20% { transform: translate(196px, 352px); }
+  26%, 30% { transform: translate(219px, 352px) rotate(6deg); }
+  40%, 50% { transform: translate(178px, 352px) rotate(-10deg); }
+  45%, 55% { transform: translate(160px, 352px) rotate(-16deg); }
+  60%, 62% { transform: translate(119px, 352px) rotate(-12deg); }
+  64% { transform: translate(200px, 346px) rotate(200deg); }
+  74%, 100% { transform: translate(170px, 352px) rotate(720deg); }
+}
+.s18-tongue { animation-name: s18-tongue; }
+@keyframes s18-tongue {
+  0%, 25% { opacity: 0; transform: translate(218px, 346px) scale(1, 1); }
+  26%, 30% { opacity: 1; transform: translate(218px, 346px) scale(23, 1); }
+  40%, 50% { opacity: 1; transform: translate(177px, 346px) scale(64, 1); }
+  45%, 55% { opacity: 1; transform: translate(159px, 346px) scale(82, 1); }
+  60%, 62% { opacity: 1; transform: translate(118px, 346px) scale(123, 1); }
+  64% { opacity: 1; transform: translate(200px, 340px) scale(0, 1); }
+  65%, 100% { opacity: 0; transform: translate(200px, 340px) scale(0, 1); }
+}
+.s18-normal { animation-name: s18-normal; }
+@keyframes s18-normal { 0%, 27% { opacity: 1; } 28%, 100% { opacity: 0; } }
+.s18-stuck { animation-name: s18-stuck; }
+@keyframes s18-stuck { 0%, 27% { opacity: 0; } 28%, 62% { opacity: 1; } 63%, 100% { opacity: 0; } }
+.s18-dizzy { animation-name: s18-dizzy; }
+@keyframes s18-dizzy { 0%, 62% { opacity: 0; } 63%, 100% { opacity: 1; } }
+.s18-dare { animation-name: s18-dare; }
+@keyframes s18-dare { 0%, 62% { opacity: 1; } 63%, 100% { opacity: 0; } }
+.s18-lol { animation-name: s18-lol; }
+@keyframes s18-lol { 0%, 62% { opacity: 0; } 63%, 100% { opacity: 1; } }
+.s18-roll { animation-name: s18-roll; }
+@keyframes s18-roll {
+  0%, 62% { transform: none; }
+  66% { transform: rotate(-30deg); }
+  70%, 80%, 90%, 100% { transform: translate(0, 8px) rotate(-90deg); }
+  75%, 85%, 95% { transform: translate(0, 4px) rotate(-75deg); }
+}
+.s18-thwap { animation-name: s18-thwap; }
+@keyframes s18-thwap {
+  0%, 62% { opacity: 0; transform: scale(0); }
+  64% { opacity: 1; transform: scale(1.4); }
+  68%, 78% { opacity: 1; transform: scale(1); }
+  82%, 100% { opacity: 0; }
+}
+
+/* ── 19 · Mooned ── */
+.s19-chair { animation-name: s19-chair; }
+@keyframes s19-chair { 0% { transform: translate(-60px, 125px); } 72% { transform: translate(250px, 84px); } 100% { transform: translate(480px, 52px); } }
+.s19-ride-happy { animation-name: s19-happy; }
+@keyframes s19-happy { 0%, 50% { opacity: 1; } 51%, 100% { opacity: 0; } }
+.s19-ride-laugh { animation-name: s19-laugh; }
+@keyframes s19-laugh {
+  0%, 50% { opacity: 0; }
+  52%, 56%, 60%, 64%, 68% { opacity: 1; transform: translate(-3px, 2px) rotate(-6deg); }
+  54%, 58%, 62%, 66%, 70% { opacity: 1; transform: translate(3px, -2px) rotate(6deg); }
+  71%, 100% { opacity: 0; }
+}
+.s19-front { animation-name: s19-front; }
+@keyframes s19-front { 0%, 25% { opacity: 1; } 26%, 100% { opacity: 0; } }
+.s19-moon { animation-name: s19-moon; }
+@keyframes s19-moon { 0%, 25% { opacity: 0; } 26%, 100% { opacity: 1; } }
+.s19-wiggle { animation: s19-wiggle 0.22s ease-in-out infinite alternate; transform-origin: 0 12px; }
+@keyframes s19-wiggle { from { transform: rotate(-14deg); } to { transform: rotate(14deg); } }
+.s19-fall { animation-name: s19-fall; }
+@keyframes s19-fall {
+  0%, 71% { opacity: 0; transform: translate(230px, 110px); }
+  72% { opacity: 1; transform: translate(230px, 110px) scale(0.62); }
+  82%, 100% { opacity: 1; transform: translate(296px, 392px) rotate(200deg) scale(0.85); }
+}
+.s19-poof { animation-name: s19-poof; }
+@keyframes s19-poof {
+  0%, 81% { opacity: 0; transform: translate(296px, 420px) scale(0); }
+  84% { opacity: 1; transform: translate(296px, 416px) scale(1.4); }
+  92%, 100% { opacity: 0; transform: translate(296px, 404px) scale(1.9); }
+}
+
+/* ── 20 · Barf Judges ── */
+.s20-spin { animation-name: s20-spin; }
+@keyframes s20-spin {
+  0% { transform: rotate(0); }
+  30% { transform: rotate(1080deg); }
+  34%, 42%, 50% { transform: rotate(1092deg) translate(4px, 0); }
+  38%, 46%, 54% { transform: rotate(1068deg) translate(-4px, 0); }
+  57%, 100% { transform: rotate(1080deg); }
+}
+.s20-hype { animation-name: s20-hype; }
+@keyframes s20-hype { 0%, 33% { opacity: 1; } 34%, 100% { opacity: 0; } }
+.s20-dizzy { animation-name: s20-dizzy; }
+@keyframes s20-dizzy { 0%, 33% { opacity: 0; } 34%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
+.s20-sick { animation-name: s20-sick; }
+@keyframes s20-sick { 0%, 49% { opacity: 0; } 50%, 100% { opacity: 1; } }
+.s20-swirl { animation-name: s20-swirl; }
+@keyframes s20-swirl { 0%, 28% { opacity: 0.8; } 32%, 100% { opacity: 0; } }
+.s20-judge-ok { animation-name: s20-ok; }
+@keyframes s20-ok { 0%, 69% { opacity: 1; } 70%, 100% { opacity: 0; } }
+.s20-judge-slimed { animation-name: s20-slimed; }
+@keyframes s20-slimed { 0%, 69% { opacity: 0; } 70%, 100% { opacity: 1; } }
+.s20-card-before { animation-name: s20-before; }
+@keyframes s20-before { 0%, 71% { opacity: 1; } 72%, 100% { opacity: 0; } }
+.s20-card-after { animation-name: s20-after; }
+@keyframes s20-after { 0%, 71% { opacity: 0; } 72%, 100% { opacity: 1; } }
