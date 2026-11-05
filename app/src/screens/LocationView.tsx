@@ -1,5 +1,7 @@
 import { useEffect, useState, type CSSProperties } from 'react'
+import { CameraIcon } from '../components/Icons'
 import type { SnowLocation } from '../data/locations'
+import { WEBCAMS } from '../data/webcams'
 import { CHANCE_THRESHOLDS, type BlendedForecast } from '../forecast/blend'
 import { fetchElevationFt } from '../forecast/openMeteo'
 import { MODEL_LABELS, type ModelId } from '../forecast/types'
@@ -33,6 +35,7 @@ export function LocationView({ loc, isFavorite, onToggleFavorite }: Props) {
   }, [isPoint, loc.lat, loc.lon])
 
   const state = useForecast(loc.lat, loc.lon, elevationFt)
+  const webcam = WEBCAMS[loc.id]
 
   return (
     <div className="screen">
@@ -48,6 +51,14 @@ export function LocationView({ loc, isFavorite, onToggleFavorite }: Props) {
           </button>
         )}
       </header>
+
+      {webcam && (
+        <a className="webcam-link" href={webcam.url} target="_blank" rel="noopener noreferrer">
+          <CameraIcon />
+          <span>Live webcams</span>
+          <span className="webcam-source">{webcam.source ?? 'official'} ↗</span>
+        </a>
+      )}
 
       {levels && (
         <div className="segmented" role="tablist">

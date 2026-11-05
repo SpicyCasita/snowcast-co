@@ -43,6 +43,14 @@ export const ChartIcon = (p: SVGProps<SVGSVGElement>) => (
   </Icon>
 )
 
+export const CameraIcon = (p: SVGProps<SVGSVGElement>) => (
+  <Icon {...p}>
+    <path d="M3 8.5A2.5 2.5 0 0 1 5.5 6h9A2.5 2.5 0 0 1 17 8.5v7a2.5 2.5 0 0 1-2.5 2.5h-9A2.5 2.5 0 0 1 3 15.5Z" />
+    <path d="m17 10.5 4-2.5v8l-4-2.5" />
+    <circle cx="7" cy="9.5" r="0.6" fill="currentColor" />
+  </Icon>
+)
+
 /** App mark: a peak with a snowcap inside a soft ring. */
 export const LogoMark = (p: SVGProps<SVGSVGElement>) => (
   <svg viewBox="0 0 32 32" aria-hidden {...p}>
