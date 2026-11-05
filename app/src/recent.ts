@@ -1,7 +1,8 @@
 /**
  * Live short-window snowfall (3–48 h) for the Past tab and the easter egg. The daily
  * past-snowfall.json is only refreshed at 5am, so these come straight from the source:
- *   - SNOTEL stations: hourly snow depth from the NRCS AWDB API (CORS-enabled).
+ *   - SNOTEL stations: hourly data from the NRCS AWDB API (CORS-enabled); new snow is the larger of
+ *     the depth gain and precip-gauge water × the snow-to-liquid ratio at the hour's temperature.
  *   - Everywhere else (CoCoRaHS reports once a day): Open-Meteo's recent hours, converted with the
  *     app's snow-to-liquid ratio, and labelled as an estimate.
  */
@@ -65,17 +66,59 @@ export function cleanWindows(raw: RecentSnow['totals']): RecentSnow['totals'] {
   return out
 }
 
-async function snotelReadings(triplet: string): Promise<Reading[] | null> {
+/**
+ * Hourly new snow (in) from SNOTEL's accumulating precip gauge and air temperature, keyed by reading
+ * time. Mirrors pipeline/recent_obs.py precip_snow: 3-hour medians damp jitter, a drop of more than
+ * 0.5" is a water-year reset, and only rises of the running max count. Missing temperature → 30°F.
+ * This catches snow that melts into warm ground or settles before the depth sensor sees it.
+ */
+export function precipSnow(prec: Reading[], temp: Reading[]): Reading[] {
+  const ok = prec.filter((r): r is { t: number; v: number } => r.v != null).sort((a, b) => a.t - b.t)
+  const tempAt = new Map(temp.filter(r => r.v != null).map(r => [r.t, r.v!]))
+  const out: Reading[] = []
+  let prevSmooth: number | null = null
+  let runMax = -Infinity
+  ok.forEach((r, i) => {
+    const win = ok.slice(Math.max(0, i - 1), i + 2).map(x => x.v).sort((a, b) => a - b)
+    const p = win.length % 2 ? win[(win.length - 1) / 2] : (win[win.length / 2 - 1] + win[win.length / 2]) / 2
+    if (prevSmooth != null && p - prevSmooth < -0.5) runMax = -Infinity
+    prevSmooth = p
+    const water = runMax === -Infinity ? 0 : Math.max(0, p - runMax)
+    runMax = Math.max(runMax, p)
+    const t = tempAt.get(r.t) ?? 30
+    out.push({ t: r.t, v: water * snowFraction(t) * snowToLiquidRatio(t) })
+  })
+  return out
+}
+
+/** Sum of hourly snow over the last `hours` before the latest reading; null without readings. */
+export function precipTotal(snow: Reading[], hours: number): number | null {
+  if (!snow.length) return null
+  const end = Math.max(...snow.map(r => r.t))
+  const sum = snow.filter(r => r.t > end - hours * 3600_000).reduce((s, r) => s + (r.v ?? 0), 0)
+  return Math.round(sum * 10) / 10
+}
+
+type SnotelHourly = Record<'SNWD' | 'PREC' | 'TOBS', Reading[]>
+const LIMITS: Record<keyof SnotelHourly, [number, number]> = { SNWD: [0, 400], PREC: [0, 200], TOBS: [-60, 100] }
+
+async function snotelReadings(triplet: string): Promise<SnotelHourly | null> {
   // AWDB reports every station in Pacific Standard Time (as pipeline/fetch_snotel.py assumes).
   const fmt = (d: Date) => new Date(d.getTime() - 8 * 3600_000).toISOString().slice(0, 13).replace('T', ' ') + ':00'
   const end = new Date()
   const begin = new Date(end.getTime() - 60 * 3600_000)
-  const params = new URLSearchParams({ stationTriplets: triplet, elements: 'SNWD', duration: 'HOURLY', beginDate: fmt(begin), endDate: fmt(new Date(end.getTime() + 24 * 3600_000)), periodRef: 'START' })
+  const params = new URLSearchParams({ stationTriplets: triplet, elements: 'SNWD,PREC,TOBS', duration: 'HOURLY', beginDate: fmt(begin), endDate: fmt(new Date(end.getTime() + 24 * 3600_000)), periodRef: 'START' })
   const res = await fetch(`https://wcc.sc.egov.usda.gov/awdbRestApi/services/v1/data?${params}`)
   if (!res.ok) return null
-  const json = (await res.json()) as { data?: { values?: { date: string; value: number | null }[] }[] }[]
-  const values = json[0]?.data?.[0]?.values ?? []
-  return values.map(v => ({ t: Date.parse(v.date.replace(' ', 'T') + ':00-08:00'), v: v.value != null && v.value >= 0 && v.value < 400 ? v.value : null }))
+  const json = (await res.json()) as { data?: { stationElement?: { elementCode?: string }; values?: { date: string; value: number | null }[] }[] }[]
+  const out: SnotelHourly = { SNWD: [], PREC: [], TOBS: [] }
+  for (const el of json[0]?.data ?? []) {
+    const code = el.stationElement?.elementCode as keyof SnotelHourly | undefined
+    if (!code || !(code in out)) continue
+    const [lo, hi] = LIMITS[code]
+    out[code] = (el.values ?? []).map(v => ({ t: Date.parse(v.date.replace(' ', 'T') + ':00-08:00'), v: v.value != null && v.value >= lo && v.value <= hi ? v.value : null }))
+  }
+  return out
 }
 
 /** Snow per window from Open-Meteo's recent hours (model analysis), summed back from now. */
@@ -111,12 +154,16 @@ export function getRecent(id: string, loc: PastLocation, fallback: { lat: number
     const p = (async () => {
       if (st?.type === 'snotel') {
         const r = await snotelReadings(st.id).catch(() => null)
-        if (r?.some(x => x.v != null)) {
+        if (r && (r.SNWD.some(x => x.v != null) || r.PREC.some(x => x.v != null))) {
+          const fromPrecip = precipSnow(r.PREC, r.TOBS)
           const raw = {} as RecentSnow['totals']
-          for (const w of WINDOWS) raw[w] = depthGain(r, w)
+          for (const w of WINDOWS) {
+            const vals = [depthGain(r.SNWD, w), precipTotal(fromPrecip, w)].filter((v): v is number => v != null)
+            raw[w] = vals.length ? Math.max(...vals) : null
+          }
           const totals = cleanWindows(raw)
-          const last = r.filter(x => x.v != null).at(-1)
-          return { source: 'snotel' as const, totals, asOf: last?.t ?? null }
+          const last = [...r.SNWD, ...r.PREC].filter(x => x.v != null).reduce((m, x) => Math.max(m, x.t), -Infinity)
+          return { source: 'snotel' as const, totals, asOf: Number.isFinite(last) ? last : null }
         }
       }
       return estimateTotals(st?.lat ?? fallback.lat, st?.lon ?? fallback.lon, st?.elevFt ?? fallback.elevFt).catch(() => null)

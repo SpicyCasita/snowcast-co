@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import uPlot from 'uplot'
+import { WebcamLink } from '../components/WebcamLink'
 import { LOCATIONS, LOCATIONS_BY_ID, type SnowLocation } from '../data/locations'
 import { dayLabel, inches } from '../format'
 import { biasPhrase, lastDaysTotal, loadPastSnowfall, stationLabel, type PastLocation, type PastSnowfall } from '../past'
@@ -63,7 +64,7 @@ function Totals({ id, l }: { id: string; l: PastLocation }) {
       {recent && (
         <div className="recent-source">
           <span className={`live-dot${recent.source === 'estimate' ? ' est' : ''}`} />
-          {recent.source === 'snotel' ? 'Live from hourly SNOTEL snow depth' : 'Short windows are a model estimate (gauge reports daily)'}
+          {recent.source === 'snotel' ? 'Live from hourly SNOTEL depth & precip gauge' : 'Short windows are a model estimate (gauge reports daily)'}
           {recent.asOf && ` · ${new Date(recent.asOf).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Denver' })}`}
         </div>
       )}
@@ -178,6 +179,8 @@ export function PastDetail({ id }: { id: string }) {
           {l && <p className="muted small">{stationLabel(l)}</p>}
         </div>
       </header>
+
+      <WebcamLink id={id} />
 
       {state.status === 'loading' && <div className="loading">Loading…</div>}
       {state.status === 'ready' && !l && <div className="error">No past snowfall data for this location.</div>}

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { LOCATIONS_BY_ID, type SnowLocation } from './data/locations'
 import type { PastLocation, PastSnowfall } from './past'
-import { cleanWindows, depthGain, type Reading } from './recent'
+import { cleanWindows, depthGain, precipSnow, precipTotal, type Reading } from './recent'
 import { AGITATE_MIN, createMotionFilter, globeParams, STIR_MIN } from './globe'
 import { spicyForced, spicyHits, tapCounter } from './spicy'
 import { stormHits } from './storm'
@@ -71,6 +71,24 @@ describe('live short-window depth gain', () => {
   it('never reports settling as negative snowfall, and needs enough history', () => {
     expect(depthGain(series([30, 29, 28, 27, 26, 25, 24, 23]), 6)).toBe(0)
     expect(depthGain(series([30, 31]), 6)).toBeNull()
+  })
+})
+
+describe('precip-gauge snow', () => {
+  const H = 3600_000
+  const series = (vals: (number | null)[]) => vals.map((v, i) => ({ t: i * H, v }))
+  it('turns gauge rises into snow by temperature, ignoring jitter dips and resets', () => {
+    const prec = series([1.0, 1.0, 1.1, 1.2, 1.3, 1.4, 1.4, 1.3, 1.4, 1.4, 1.4, 1.4])
+    const cold = series(Array(12).fill(20))
+    expect(precipTotal(precipSnow(prec, cold), 48)).toBeCloseTo(0.4 * 17, 1)
+    expect(precipTotal(precipSnow(prec, series(Array(12).fill(40))), 48)).toBe(0)
+    const reset = series([12, 12, 0, 0, 0.1, 0.1])
+    expect(precipTotal(precipSnow(reset, cold), 48)).toBeCloseTo(1.7, 1)
+  })
+  it('only sums the window before the latest reading', () => {
+    const snow = series([1, 1, 1, 1, 1, 1])
+    expect(precipTotal(snow, 3)).toBe(3)
+    expect(precipTotal([], 3)).toBeNull()
   })
 })
 

@@ -6,15 +6,19 @@ past-snowfall.json (adding our day-before forecasts and model estimates).
 Station matching, per location in app/src/data/locations.ts:
   - SNOTEL (mountains) or CoCoRaHS (towns) within MAX_KM, and within ELEV_SLACK_FT of the
     location's elevation range (base..summit for resorts). Resorts and passes prefer SNOTEL,
-    towns prefer CoCoRaHS; otherwise the nearest qualifying station wins.
+    towns prefer CoCoRaHS.
+  - Towns take the nearest qualifying station. Resorts and passes take the one whose elevation is
+    closest to mid-mountain, with distance as a lesser factor: Copper's base-area SNOTEL (2 km)
+    recorded ~0" in a Nov 2026 storm while Fremont Pass at mid-mountain height (14 km) recorded inches.
   - CoCoRaHS gauges must have reported on at least MIN_REPORT_SHARE of recent days.
   - No match -> station null; the app script fills in a labelled model estimate.
 
 New snow:
-  - SNOTEL: daily snow-depth gain (start of D+1 minus start of D, PST), clipped at 0. Settling
-    makes this a slight undercount during long storms.
+  - SNOTEL: the larger of (a) snow-depth gain (start of D+1 minus start of D, PST, clipped at 0)
+    and (b) precipitation-gauge water x the app's temperature-based snow-to-liquid ratio. (a)
+    misses snow that melts into warm early-season ground or settles; (b) misses wind undercatch.
   - CoCoRaHS: the observer's measured new snow, dated by the day its window starts.
-  - last24/last48: SNOTEL from hourly depth (3-hour medians to damp sensor noise); CoCoRaHS
+  - last24/last48: SNOTEL from the same two estimates hourly (depth uses 3-hour medians); CoCoRaHS
     from the latest one or two morning reports when they are from today.
 """
 
@@ -41,6 +45,11 @@ CLOSE_KM = 5.0
 ELEV_SLACK_FT = 1000.0
 MIN_REPORT_SHARE = 0.5
 SMOOTH_H = 3
+# Resort/pass choice: score = |elev - mid-mountain| / 1000 ft + DIST_WEIGHT * km / MAX_KM.
+DIST_WEIGHT = 0.3
+# Snow-to-liquid ratio by air temperature (°F), mirroring snowToLiquidRatio in app/src/forecast/blend.ts.
+SLR_TEMPS_F = [-10, 0, 10, 15, 20, 25, 30, 34]
+SLR_RATIOS = [16, 18, 20, 19, 17, 14, 11, 8]
 LOC_RE = re.compile(
     r"(resort|town|pass)\('([^']+)',\s*'([^']+)',\s*([-\d.]+),\s*([-\d.]+),\s*(\d+)(?:,\s*(\d+))?,\s*'([^']+)'\)"
 )
@@ -84,7 +93,13 @@ def match_stations(locs: pd.DataFrame, cands: pd.DataFrame) -> dict[str, dict | 
             continue
         pool = cands[ok].assign(km=km[ok])
         prefer = "cocorahs" if loc.kind == "town" else "snotel"
-        pool = pool.assign(rank=(pool.type != prefer).astype(int)).sort_values(["rank", "km"])
+        pool = pool.assign(rank=(pool.type != prefer).astype(int))
+        if loc.kind == "town":
+            pool = pool.sort_values(["rank", "km"])
+        else:
+            mid = (loc.base_ft + loc.summit_ft) / 2
+            score = (pool.elev_ft - mid).abs().fillna(5000) / 1000 + DIST_WEIGHT * pool.km / MAX_KM
+            pool = pool.assign(score=score).sort_values(["rank", "score"])
         best = pool.iloc[0]
         out[loc.id] = {
             "type": best.type,
@@ -111,21 +126,62 @@ def depth_gain(hourly: pd.Series, hours: int) -> float | None:
     return round(max(0.0, float(now - before.median())), 1)
 
 
-def snotel_hourly_depth(session: requests.Session, triplets: list[str], now: dt.datetime) -> dict[str, pd.Series]:
-    begin = (now - dt.timedelta(hours=60)).strftime("%Y-%m-%d %H:00")
-    payload = get_json(
-        session,
-        "data",
-        {"stationTriplets": ",".join(triplets), "elements": "SNWD", "duration": "HOURLY", "beginDate": begin, "endDate": now.strftime("%Y-%m-%d %H:00"), "periodRef": "START"},
-    )
-    out: dict[str, pd.Series] = {}
-    for st in payload:
-        for el in st.get("data", []):
-            vals = el.get("values", [])
-            s = pd.Series({pd.Timestamp(v["date"]): v.get("value") for v in vals}, dtype=float)
-            s[(s < 0) | (s > 400)] = np.nan
-            out[st["stationTriplet"]] = s.sort_index()
+def snow_fraction(temp_f: pd.Series) -> pd.Series:
+    """Share of precip falling as snow; mirrors snowFraction in blend.ts."""
+    return ((37 - temp_f) / 5).clip(0, 1)
+
+
+def snow_ratio(temp_f: pd.Series) -> pd.Series:
+    return pd.Series(np.interp(temp_f, SLR_TEMPS_F, SLR_RATIOS), index=temp_f.index)
+
+
+def precip_snow(prec: pd.Series, temp_f: pd.Series) -> pd.Series:
+    """Hourly new snow (in) from SNOTEL's accumulating precip gauge and air temperature.
+
+    The accumulator only grows within a water year, so: smooth sensor jitter with 3-hour medians,
+    treat a drop of more than 0.5" as a reset (Oct 1), take the running max within each segment and
+    count its increases. Hours without a temperature assume 30°F.
+    """
+    p = prec.astype(float).rolling(3, center=True, min_periods=1).median()
+    seg = (p.diff() < -0.5).cumsum()
+    p = p.groupby(seg).cummax()
+    water = p.groupby(seg).diff().clip(lower=0).fillna(0)
+    t = temp_f.astype(float).reindex(water.index).interpolate(limit=3, limit_direction="both").fillna(30.0)
+    return water * snow_fraction(t) * snow_ratio(t)
+
+
+def snotel_hourly(session: requests.Session, triplets: list[str], begin: dt.datetime, end: dt.datetime, batch: int = 5) -> dict[str, pd.DataFrame]:
+    """Hourly SNWD / PREC / TOBS per station (PST timestamps), impossible values blanked."""
+    out: dict[str, pd.DataFrame] = {}
+    for i in range(0, len(triplets), batch):
+        payload = get_json(
+            session,
+            "data",
+            {"stationTriplets": ",".join(triplets[i : i + batch]), "elements": "SNWD,PREC,TOBS", "duration": "HOURLY",
+             "beginDate": begin.strftime("%Y-%m-%d %H:00"), "endDate": end.strftime("%Y-%m-%d %H:00"), "periodRef": "START"},
+        )
+        for st in payload:
+            cols = {}
+            for el in st.get("data", []):
+                code = el["stationElement"]["elementCode"]
+                cols[code] = pd.Series({pd.Timestamp(v["date"]): v.get("value") for v in el.get("values", [])}, dtype=float)
+            df = pd.DataFrame(cols).sort_index()
+            for col, lo, hi in (("SNWD", 0, 400), ("PREC", 0, 200), ("TOBS", -60, 100)):
+                if col not in df:
+                    df[col] = np.nan
+                df.loc[(df[col] < lo) | (df[col] > hi), col] = np.nan
+            out[st["stationTriplet"]] = df
     return out
+
+
+def snotel_recent(df: pd.DataFrame, hours: int) -> float | None:
+    """New snow over the last `hours`: the larger of depth gain and precip-derived snow."""
+    vals = [depth_gain(df.SNWD, hours)]
+    if df.PREC.notna().any():
+        ps = precip_snow(df.PREC, df.TOBS)
+        vals.append(round(float(ps[ps.index > df.index.max() - pd.Timedelta(hours=hours)].sum()), 1))
+    vals = [v for v in vals if v is not None]
+    return max(vals) if vals else None
 
 
 def gauge_elevations(st: pd.DataFrame) -> pd.Series:
@@ -190,10 +246,16 @@ def main() -> None:
         st = snotel[snotel.triplet.isin(triplets)]
         obs = fetch_snotel(st, start.isoformat(), today.isoformat())
         site_to_triplet = dict(zip(st.site.astype(str), st.triplet))
+        hourly = snotel_hourly(session, triplets, dt.datetime.combine(start, dt.time()) - dt.timedelta(hours=3), now_pst)
         for site, g in obs.groupby("site"):
-            gain = g.set_index("date").dsnwd_in.clip(lower=0).dropna()
-            daily[site_to_triplet[str(site)]] = {d.date().isoformat(): round(float(v), 1) for d, v in gain.items()}
-        hourly = snotel_hourly_depth(session, triplets, now_pst)
+            trip = site_to_triplet[str(site)]
+            new = g.set_index("date").dsnwd_in.clip(lower=0)
+            if trip in hourly and hourly[trip].PREC.notna().any():
+                ps = precip_snow(hourly[trip].PREC, hourly[trip].TOBS)
+                by_day = ps.groupby(ps.index.normalize()).sum()
+                # Only days the depth record has, so the calendar matches the depth history.
+                new = pd.concat([new, by_day.reindex(new.index)], axis=1).max(axis=1, skipna=True)
+            daily[trip] = {d.date().isoformat(): round(float(v), 1) for d, v in new.dropna().items()}
     else:
         hourly = {}
 
@@ -209,8 +271,8 @@ def main() -> None:
         if st:
             entry["days"] = daily.get(st["id"], {})
             if st["type"] == "snotel" and st["id"] in hourly:
-                entry["last24In"] = depth_gain(hourly[st["id"]], 24)
-                entry["last48In"] = depth_gain(hourly[st["id"]], 48)
+                entry["last24In"] = snotel_recent(hourly[st["id"]], 24)
+                entry["last48In"] = snotel_recent(hourly[st["id"]], 48)
             elif st["type"] == "cocorahs":
                 g = coco[coco.site == st["id"]].sort_values("obs_date")
                 fresh = g[g.obs_date >= pd.Timestamp(today - dt.timedelta(days=1))]
