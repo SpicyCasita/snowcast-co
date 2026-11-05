@@ -1,8 +1,18 @@
 /** Observed snowfall vs our day-before forecast, built daily by scripts/past-snowfall.ts. */
 
-export interface Station { type: 'snotel' | 'cocorahs'; id: string; name: string; lat: number; lon: number; elevFt: number | null; km: number }
+export interface Station {
+  type: 'snotel' | 'cocorahs'; id: string; name: string; lat: number; lon: number; elevFt: number | null; km: number
+  /** Picked over the nearest-fit station (`replaced`) because it matches the resort's own reports. */
+  matchedBy?: 'resort-reports'
+  replaced?: string
+  /** Station vs resort-reported snow over the days around the resort's snow reports. */
+  resortCheck?: { reportedIn: number; stationIn: number; days: number }
+}
 
-/** One PST day: actual (a) and predicted (p) snowfall in inches; null when unknown. */
+/**
+ * One observation day, 7am to 7am Mountain Standard Time like resort snow reports and CoCoRaHS:
+ * actual (a) and predicted (p) snowfall in inches; null when unknown.
+ */
 export interface PastDay { d: string; a: number | null; p: number | null }
 
 /** Error of predicted vs actual over recent snow days. */
@@ -34,6 +44,8 @@ export interface PastSnowfall {
   generated: string
   obsGenerated: string
   seasonStart: string
+  /** Hour (PST) observation days start; files from before days were aligned to 7am MST lack it. */
+  dayStartH?: number
   locations: Record<string, PastLocation>
 }
 
@@ -57,6 +69,14 @@ export const stationLabel = (l: PastLocation) =>
   l.estimate || !l.station
     ? 'Model estimate (no station nearby)'
     : `${l.station.name}${l.station.type === 'cocorahs' ? ' (CoCoRaHS)' : ''} · ${l.station.km} km${l.station.elevFt ? ` · ${l.station.elevFt.toLocaleString()}′` : ''}`
+
+/** Why a resort's station isn't the closest fit, e.g. "Chosen over Red Mountain Pass SNOTEL: ...". */
+export function stationNote(l: PastLocation): string | null {
+  const st = l.station
+  if (st?.matchedBy !== 'resort-reports' || !st.resortCheck) return null
+  const c = st.resortCheck
+  return `Chosen over ${st.replaced ?? 'the closest-fit station'}: on the days around ${l.name}'s own snow reports, this station measured ${c.stationIn}" to the resort's ${c.reportedIn}".`
+}
 
 /** Plain-language summary of the bias, e.g. "forecasts ran 0.9" high". */
 export function biasPhrase(biasIn: number): string {

@@ -3,7 +3,7 @@ import uPlot from 'uplot'
 import { WebcamLink } from '../components/WebcamLink'
 import { LOCATIONS, LOCATIONS_BY_ID, type SnowLocation } from '../data/locations'
 import { dayLabel, inches } from '../format'
-import { biasPhrase, lastDaysTotal, loadPastSnowfall, stationLabel, type PastLocation, type PastSnowfall } from '../past'
+import { biasPhrase, lastDaysTotal, loadPastSnowfall, stationLabel, stationNote, type PastLocation, type PastSnowfall } from '../past'
 import { getRecent, type RecentSnow } from '../recent'
 import { compareToResort, isCurrent, loadResortReports, type ResortReport } from '../resortReports'
 import { axisBase, css, HEIGHT, usePlot } from './HourlyChart'
@@ -50,7 +50,7 @@ function Totals({ id, l }: { id: string; l: PastLocation }) {
   const atLeast = (v: number | null) => (v == null ? h48 : h48 == null ? v : Math.max(v, h48))
   const items = [
     ['3h', t?.[3] ?? null], ['6h', t?.[6] ?? null], ['12h', t?.[12] ?? null], ['24h', t?.[24] ?? l.last24In],
-    ['48h', h48], ['7 days', atLeast(lastDaysTotal(l.days, 7))], ['Season', atLeast(l.seasonIn)],
+    ['48h', h48], ['7 days', atLeast(lastDaysTotal(l.days, 7))], ['Since Oct 1', atLeast(l.seasonIn)],
   ] as const
   return (
     <>
@@ -65,7 +65,7 @@ function Totals({ id, l }: { id: string; l: PastLocation }) {
       {recent && (
         <div className="recent-source">
           <span className={`live-dot${recent.source === 'estimate' ? ' est' : ''}`} />
-          {recent.source === 'snotel' ? 'Live from hourly SNOTEL depth & precip gauge' : 'Short windows are a model estimate (gauge reports daily)'}
+          {recent.source === 'snotel' ? 'Live from hourly SNOTEL snow depth, counted once new snow has held 3 hours' : 'Short windows are a model estimate (gauge reports daily)'}
           {recent.asOf && ` · ${new Date(recent.asOf).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Denver' })}`}
         </div>
       )}
@@ -140,7 +140,7 @@ export function PastList({ favorites }: { favorites: SnowLocation[] }) {
     <div className="screen">
       <header className="app-header">
         <h1>Past snowfall</h1>
-        <p className="muted small">Measured at the nearest SNOTEL or CoCoRaHS station, next to what we forecast the day before.</p>
+        <p className="muted small">Measured at a nearby SNOTEL snow-depth sensor or CoCoRaHS observer, next to what we forecast the day before. Days run 7am to 7am, like resort reports.</p>
       </header>
       {!data ? (
         <div className="error">Past snowfall data isn't available yet.</div>
@@ -156,7 +156,7 @@ export function PastList({ favorites }: { favorites: SnowLocation[] }) {
             </section>
           )}
           <details className="loc-section" open={favorites.length === 0}>
-            <summary><span className="section-title">All locations</span><span className="muted small">7 days · season</span></summary>
+            <summary><span className="section-title">All locations</span><span className="muted small">7 days · since Oct 1</span></summary>
             <ul className="loc-list">
               {LOCATIONS.filter(l => data.locations[l.id]).map(l => {
                 const p = data.locations[l.id]
@@ -220,6 +220,7 @@ export function PastDetail({ id }: { id: string }) {
         <div className="detail-title">
           <h1>{l?.name ?? 'Past snowfall'}</h1>
           {l && <p className="muted small">{stationLabel(l)}</p>}
+          {l && stationNote(l) && <p className="muted small">{stationNote(l)}</p>}
         </div>
       </header>
 

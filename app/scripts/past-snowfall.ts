@@ -9,7 +9,8 @@
  * - Predicted: rebuilt from Open-Meteo's archive of day-before model runs (`previous_day1`) at the
  *   station's own point and elevation, blended exactly as the app does at a 24-hour lead (same
  *   snow-to-liquid ratio, same SNOTEL-tuned bias and weights). So the comparison is like for like.
- * - Days are PST days (the SNOTEL day); CoCoRaHS morning reports are dated by the day they start.
+ * - Days run 6am to 6am PST (7am MST), dated by the day they start: the window resort snow reports
+ *   and CoCoRaHS observers use, and how pipeline/recent_obs.py dates SNOTEL.
  * - Predictions for days older than REFRESH_DAYS are kept from the previous file, so daily runs
  *   only download a few days per location.
  */
@@ -33,6 +34,8 @@ const SNOW_DAY_IN = 1
 const LEAD_H = 24
 const PACE_MS = 1500
 const VERSION = 1
+/** Hour (PST) each observation day starts, as in pipeline/recent_obs.py DAY_START_H. */
+const DAY_START_H = 6
 
 interface ObsLocation { name: string; kind: string; station: Station | null; days: Record<string, number>; last24In: number | null; last48In: number | null }
 interface RecentObs { generated: string; seasonStart: string; locations: Record<string, ObsLocation> }
@@ -42,7 +45,8 @@ const arg = (name: string, fallback: string) => {
   return i >= 0 ? process.argv[i + 1] : fallback
 }
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
-const pstDay = (unixSec: number) => new Date((unixSec - 8 * 3600) * 1000).toISOString().slice(0, 10)
+/** Observation day of an hourly value stamped at the end of its hour: 6am PST belongs to the day before. */
+const obsDay = (unixSec: number) => new Date((unixSec - (8 + DAY_START_H) * 3600 - 1) * 1000).toISOString().slice(0, 10)
 const round1 = (x: number) => Math.round(x * 10) / 10
 
 type Hourly = Record<string, (number | null)[]>
@@ -64,7 +68,7 @@ async function getHourly(url: string): Promise<Hourly | null> {
 const snowFrom = (p: number | null, t: number | null, bias = 1) =>
   p == null || t == null ? null : p * bias * snowFraction(t) * snowToLiquidRatio(t)
 
-/** Day-before blended forecast per PST day, rebuilt from archived `previous_day1` runs. */
+/** Day-before blended forecast per observation day, rebuilt from archived `previous_day1` runs. */
 export function blendPrevious(hourly: Hourly, weights: SkillWeights | null, lat: number, lon: number, elevFt: number): Record<string, number> {
   const skill = weights ? skillModel(weights, lat, lon, elevFt) : null
   const weight = (m: ModelId) => skill ? skill.weight(m, LEAD_H) : 1
@@ -82,7 +86,7 @@ export function blendPrevious(hourly: Hourly, weights: SkillWeights | null, lat:
       den += w
     }
     if (den === 0) return
-    const d = pstDay(t)
+    const d = obsDay(t)
     days[d] ??= { sum: 0, hours: 0 }
     days[d].sum += num / den
     days[d].hours++
@@ -91,14 +95,14 @@ export function blendPrevious(hourly: Hourly, weights: SkillWeights | null, lat:
   return Object.fromEntries(Object.entries(days).filter(([, v]) => v.hours >= 22).map(([d, v]) => [d, round1(v.sum)]))
 }
 
-/** Model-analysis snowfall per PST day, for locations without a nearby station. */
+/** Model-analysis snowfall per observation day, for locations without a nearby station. */
 function estimateDays(hourly: Hourly): Record<string, number> {
   const times = hourly.time as number[]
   const days: Record<string, number> = {}
   times.forEach((t, i) => {
     const s = snowFrom(hourly.precipitation?.[i] ?? null, hourly.temperature_2m?.[i] ?? null)
     if (s == null) return
-    days[pstDay(t)] = (days[pstDay(t)] ?? 0) + s
+    days[obsDay(t)] = (days[obsDay(t)] ?? 0) + s
   })
   return Object.fromEntries(Object.entries(days).map(([d, v]) => [d, round1(v)]))
 }
@@ -137,10 +141,12 @@ async function main() {
   const obs: RecentObs = JSON.parse(readFileSync(resolve(APP, arg('--obs', '../pipeline/out/recent-obs.json')), 'utf8'))
   const weightsPath = resolve(APP, 'public/data/weights.json')
   const weights: SkillWeights | null = existsSync(weightsPath) ? JSON.parse(readFileSync(weightsPath, 'utf8')) : null
-  const prev: PastSnowfall | null = existsSync(OUT) ? JSON.parse(readFileSync(OUT, 'utf8')) : null
+  const old: PastSnowfall | null = existsSync(OUT) ? JSON.parse(readFileSync(OUT, 'utf8')) : null
+  // Predictions kept from a file with other day boundaries would be for different windows.
+  const prev = old?.dayStartH === DAY_START_H ? old : null
 
-  const todayPst = pstDay(Date.now() / 1000)
-  const dayList = Array.from({ length: HISTORY_DAYS }, (_, i) => pstDay(Date.now() / 1000 - (HISTORY_DAYS - i) * 86400))
+  const today = obsDay(Date.now() / 1000)
+  const dayList = Array.from({ length: HISTORY_DAYS }, (_, i) => obsDay(Date.now() / 1000 - (HISTORY_DAYS - i) * 86400))
   const refreshFrom = dayList[dayList.length - REFRESH_DAYS]
   const statsFrom = dayList[dayList.length - STATS_DAYS]
 
@@ -154,7 +160,9 @@ async function main() {
 
     // Reuse settled predictions; re-download only recent days (or everything the first time).
     const old = prev?.locations[loc.id]
-    const samePoint = old && JSON.stringify(old.station) === JSON.stringify(st)
+    // Predictions depend only on the forecast point; a station's resort-check stats change daily.
+    const pointKey = (s: Station | null) => (s ? `${s.lat},${s.lon},${s.elevFt}` : 'none')
+    const samePoint = old && pointKey(old.station) === pointKey(st)
     const kept: Record<string, number> = {}
     if (samePoint) for (const x of old.days) if (x.p != null && x.d < refreshFrom) kept[x.d] = x.p
     const pastDays = Object.keys(kept).length ? REFRESH_DAYS + 1 : HISTORY_DAYS + 1
@@ -167,7 +175,7 @@ async function main() {
       actual = eh ? estimateDays(eh) : {}
     }
 
-    const days: PastDay[] = dayList.filter(d => d < todayPst).map(d => ({ d, a: actual[d] ?? null, p: predicted[d] ?? null }))
+    const days: PastDay[] = dayList.filter(d => d < today).map(d => ({ d, a: actual[d] ?? null, p: predicted[d] ?? null }))
     const season = Object.entries(actual).filter(([d]) => d >= obs.seasonStart)
     out[loc.id] = {
       name: loc.name,
@@ -184,7 +192,7 @@ async function main() {
     await sleep(PACE_MS)
   }
 
-  const doc: PastSnowfall = { version: VERSION, generated: new Date().toISOString().slice(0, 19) + 'Z', obsGenerated: obs.generated, seasonStart: obs.seasonStart, locations: out }
+  const doc: PastSnowfall = { version: VERSION, generated: new Date().toISOString().slice(0, 19) + 'Z', obsGenerated: obs.generated, seasonStart: obs.seasonStart, dayStartH: DAY_START_H, locations: out }
   writeFileSync(OUT, JSON.stringify(doc))
   console.log(`wrote ${OUT} (${Math.round(JSON.stringify(doc).length / 1024)} KB)`)
 }

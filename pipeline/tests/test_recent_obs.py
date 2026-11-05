@@ -6,7 +6,10 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from recent_obs import calendar_months, depth_gain, match_stations, parse_locations, precip_snow, season_start, snotel_recent  # noqa: E402
+from recent_obs import (  # noqa: E402
+    calendar_months, calibrate, day_totals, match_stations, parse_locations, recent_new_snow, report_events, season_start,
+    station_pool, storm_increments,
+)
 
 
 def locs(*rows):
@@ -49,16 +52,6 @@ def test_unknown_elevation_only_matches_very_close_gauges():
     assert m["b"] is None
 
 
-def test_depth_gain_is_smoothed_and_clipped():
-    idx = pd.date_range("2026-11-01 00:00", periods=60, freq="h")
-    # 8" of new snow arrives 20 hours before the last reading.
-    s = pd.Series(np.r_[np.full(40, 10.0), np.full(20, 18.0)], index=idx)
-    s.iloc[-1] = 40.0  # one-hour sensor spike, damped by the 3-hour median
-    assert depth_gain(s, 24) == 8.0
-    assert depth_gain(pd.Series(np.linspace(20, 15, 60), index=idx), 24) == 0.0
-    assert depth_gain(s.iloc[-5:], 24) is None
-
-
 def test_resorts_pick_mid_mountain_station_towns_pick_nearest():
     c = cands(
         ("snotel", "valley", "Valley SNOTEL", 39.02, -106.0, 9700),  # ~2 km, near the base
@@ -71,34 +64,79 @@ def test_resorts_pick_mid_mountain_station_towns_pick_nearest():
     assert match_stations(locs(("r", "R", "resort", 39.0, -106.0, 9700, 12400)), c2)["r"]["id"] == "a"
 
 
-def test_precip_snow_counts_gauge_increases_as_snow_by_temperature():
-    idx = pd.date_range("2026-11-01 00:00", periods=12, freq="h")
-    # 0.4" of water over 4 hours at 20°F (17:1) -> 6.8", plus jitter and a 1-hour dip that must not count.
-    prec = pd.Series([1.0, 1.0, 1.1, 1.2, 1.3, 1.4, 1.4, 1.3, 1.4, 1.4, 1.4, 1.4], index=idx)
-    snow = precip_snow(prec, pd.Series(20.0, index=idx))
-    assert abs(snow.sum() - 0.4 * 17) < 0.05
-    assert precip_snow(prec, pd.Series(40.0, index=idx)).sum() == 0  # rain
-    # Water-year reset (accumulator back to 0 on Oct 1) is not counted as negative or as new water.
-    reset = pd.Series([12.0, 12.0, 0.0, 0.0, 0.1, 0.1], index=idx[:6])
-    assert abs(precip_snow(reset, pd.Series(20.0, index=idx[:6])).sum() - 1.7) < 0.05
+def series(vals, start="2026-11-01 00:00"):
+    return pd.Series(np.asarray(vals, dtype=float), index=pd.date_range(start, periods=len(vals), freq="h"))
 
 
-def test_snotel_recent_counts_gauge_snow_only_when_depth_confirms_it():
-    idx = pd.date_range("2026-11-01 00:00", periods=60, freq="h")
-    # The gauge catches 0.3" of water at 25°F (14:1) but depth never rises: nothing a stake would show.
-    df = pd.DataFrame({"SNWD": 0.0, "PREC": np.r_[np.full(45, 2.0), np.full(15, 2.3)], "TOBS": 25.0}, index=idx)
-    assert snotel_recent(df, 24) == 0.0
-    # 1" sensor flicker doesn't confirm it either.
-    assert snotel_recent(df.assign(SNWD=np.tile([0.0, 1.0], 30)), 24) == 0.0
-    # Depth briefly builds to 3" then melts back to 0 by the end: the gauge total counts.
-    df["SNWD"] = np.r_[np.full(46, 0.0), np.full(6, 3.0), np.full(8, 0.0)]
-    assert snotel_recent(df, 24) == 4.2
-    # Lots of water near freezing but depth only rose 2": capped at twice the rise.
-    wet = df.assign(PREC=np.r_[np.full(45, 2.0), np.full(15, 4.0)], SNWD=np.r_[np.full(46, 0.0), np.full(14, 2.0)])
-    assert snotel_recent(wet, 24) == 4.0
-    df["SNWD"] = np.r_[np.full(40, 0.0), np.full(20, 6.0)]
-    assert snotel_recent(df, 24) == 6.0
-    assert snotel_recent(df.assign(PREC=np.nan), 24) == 6.0
+def test_storm_increments_ignore_flicker_and_count_real_rises():
+    assert storm_increments(series(np.tile([0.0, 1.0], 30))).sum() == 0  # 1" sensor flicker
+    assert storm_increments(series(np.tile([3.0, 4.0, 3.0], 20))).sum() == 0
+    # 6" storm, settles to 4", then 5" more on top: 11" of snowfall although depth only reached 9".
+    s = series(np.r_[np.full(10, 0.0), np.full(10, 6.0), np.full(10, 4.0), np.full(10, 9.0)])
+    assert storm_increments(s).sum() == 11.0
+    # Snow that melts back to bare ground and falls again counts both times.
+    s = series(np.r_[np.full(6, 0.0), np.full(6, 3.0), np.full(6, 0.0), np.full(6, 3.0)])
+    assert storm_increments(s).sum() == 6.0
+    # A one-hour spike is damped by the 3-hour median.
+    spike = np.full(20, 5.0)
+    spike[10] = 30.0
+    assert storm_increments(series(spike)).sum() == 0
+    # Afternoon blips over bare ground that last up to 3 hours (Porphyry Creek Oct 12, Mineral Creek Oct 22).
+    assert storm_increments(series([0, 1, 0, 0, 0, 0, 0, 0, 0, 2, 2, 1, 1, 1, 1, 1, 1, 0, 0, 0])).sum() == 0
+    assert storm_increments(series([0, 0, 0, 0, 0, 0, 0, 1, 2, 2, 2, 1, 0, 1, 2, 2, 2, 1, 0, 0, 0, 0])).sum() == 0
+    # Real snow builds and stays (Wolf Creek Summit, Nov 2).
+    assert storm_increments(series([18, 18, 19, 20, 21, 21, 22, 23, 22, 22, 22, 22, 22, 22, 22, 22])).sum() == 4.0
+
+
+def test_day_totals_run_from_the_morning_report_and_recent_windows():
+    inc = storm_increments(series(np.r_[np.full(34, 0.0), np.full(26, 8.0)]))  # 8" at 10am Nov 2; ends 11am Nov 3
+    assert day_totals(inc).to_dict() == {"2026-10-31": 0.0, "2026-11-01": 0.0, "2026-11-02": 8.0, "2026-11-03": 0.0}
+    # The 6am reading covers 5-6am, before the morning report, so it belongs to the day before.
+    at6 = storm_increments(series(np.r_[np.full(30, 0.0), np.full(10, 8.0)]))
+    assert day_totals(at6).to_dict()["2026-11-01"] == 8.0
+    end = inc.index.max().to_pydatetime()
+    assert recent_new_snow(inc, 24, end) == 0.0
+    assert recent_new_snow(inc, 36, end) == 8.0
+    assert recent_new_snow(inc, 72, end) is None  # the record doesn't reach back 72 h
+    assert recent_new_snow(inc, 36, end + dt.timedelta(hours=12)) is None  # stale
+
+
+def test_report_events_pad_merge_and_keep_reported_days():
+    days = {"2026-10-30": 0.0, "2026-10-31": 5.0, "2026-11-01": 0.0, "2026-11-02": 6.0, "2026-11-03": 0.0, "2026-11-10": 0.5}
+    assert report_events(days) == [["2026-10-30", "2026-10-31", "2026-11-01", "2026-11-02", "2026-11-03"]]
+    assert report_events({"2026-11-02": 6.0}) == [["2026-11-02"]]
+    assert report_events({"2026-11-10": 0.5}) == []
+
+
+def daily(**vals):
+    return pd.Series(list(vals.values()), index=[k.replace("_", "-")[1:] for k in vals])
+
+
+def test_calibrate_switches_only_when_another_station_clearly_matches():
+    resort = {"2026-10-31": 0.0, "2026-11-01": 6.0, "2026-11-02": 0.0}
+    far = daily(_2026_10_31=2.0, _2026_11_01=11.0, _2026_11_02=8.0)  # 21" vs 6" reported
+    close = daily(_2026_10_31=0.0, _2026_11_01=5.0, _2026_11_02=0.0)
+    so_so = daily(_2026_10_31=0.0, _2026_11_01=7.5, _2026_11_02=0.0)
+    chosen, stats = calibrate("red", {"red": far, "idarado": close}, resort)
+    assert chosen == "idarado" and stats == {"reportedIn": 6.0, "stationIn": 5.0, "days": 3}
+    # The default stays when it agrees, and when the alternative is only a little better.
+    assert calibrate("idarado", {"idarado": close, "red": far}, resort)[0] == "idarado"
+    assert calibrate("so-so", {"so-so": so_so, "idarado": close}, resort)[0] == "so-so"
+    # Not enough reported snow yet: no verdict at all.
+    assert calibrate("red", {"red": far, "idarado": close}, {"2026-11-01": 2.0}) == ("red", None)
+    # A default with no data over the reports loses to one that has it.
+    assert calibrate("red", {"red": pd.Series(dtype=float), "idarado": close}, resort)[0] == "idarado"
+
+
+def test_station_pool_reaches_further_for_snotel_only():
+    c = cands(
+        ("snotel", "near", "Near", 39.05, -106.0, 11000),  # ~5.6 km
+        ("snotel", "far", "Far", 39.18, -106.0, 11000),  # ~20 km
+        ("cocorahs", "gauge", "Gauge", 39.18, -106.0, 10000),  # ~20 km
+    )
+    loc = next(locs(("r", "R", "resort", 39.0, -106.0, 9700, 12400)).itertuples())
+    assert list(station_pool(loc, c).id) == ["near"]
+    assert list(station_pool(loc, c, snotel_km=25).id) == ["near", "far"]
 
 
 def test_calendar_months_cover_every_month():

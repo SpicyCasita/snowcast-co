@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { LOCATIONS_BY_ID, type SnowLocation } from './data/locations'
 import type { PastLocation, PastSnowfall } from './past'
-import { cleanWindows, confirmedPrecip, depthGain, peakRise, precipSnow, precipTotal, type Reading } from './recent'
+import { stormIncrements, windowTotals, type Reading } from './recent'
 import { AGITATE_MIN, createMotionFilter, globeParams, STIR_MIN } from './globe'
 import { spicyForced, spicyHits, tapCounter } from './spicy'
 import { stormHits } from './storm'
@@ -57,59 +57,34 @@ describe('storm mode', () => {
   })
 })
 
-describe('live short-window depth gain', () => {
+describe('live snow from hourly depth', () => {
   const H = 3600_000
-  const series = (vals: number[]): Reading[] => vals.map((v, i) => ({ t: i * H, v }))
+  const series = (vals: (number | null)[]): Reading[] => vals.map((v, i) => ({ t: i * H, v }))
+  const total = (r: Reading[]) => r.reduce((s, x) => s + (x.v ?? 0), 0)
 
-  it('catches a 3-hour burst without smoothing it away', () => {
-    // flat at 20", then 4" in the last two hours
-    expect(depthGain(series([20, 20, 20, 20, 20, 20, 22, 24]), 3)).toBe(4)
+  it('ignores flicker, spikes and afternoon blips', () => {
+    expect(total(stormIncrements(series(Array.from({ length: 48 }, (_, i) => i % 2))))).toBe(0) // ±1" flicker
+    expect(total(stormIncrements(series([...Array(10).fill(30), 60, ...Array(10).fill(30)])))).toBe(0) // one-hour spike
+    // Mineral Creek, Oct 22: two 3-hour blips to 2" over bare ground
+    expect(total(stormIncrements(series([0, 0, 0, 0, 0, 0, 0, 1, 2, 2, 2, 1, 0, 1, 2, 2, 2, 1, 0, 0, 0, 0])))).toBe(0)
   })
-  it('smooths a one-hour spike for longer windows', () => {
-    expect(depthGain(series([...Array(20).fill(30), 30, 30, 60]), 12)).toBe(0)
+  it('counts snow that builds and stays, including snow that settles or melts before more falls', () => {
+    // Wolf Creek Summit, Nov 2: 18" -> 22"
+    expect(total(stormIncrements(series([18, 18, 19, 20, 21, 21, 22, 23, 22, 22, 22, 22, 22, 22])))).toBe(4)
+    // 6", settles to 4", then 5" more: 11" of snowfall though the depth only reached 9"
+    expect(total(stormIncrements(series([...Array(8).fill(0), ...Array(8).fill(6), ...Array(8).fill(4), ...Array(8).fill(9)])))).toBe(11)
+    // melts back to bare ground, then snows again
+    expect(total(stormIncrements(series([...Array(6).fill(0), ...Array(6).fill(3), ...Array(6).fill(0), ...Array(6).fill(3)])))).toBe(6)
   })
-  it('never reports settling as negative snowfall, and needs enough history', () => {
-    expect(depthGain(series([30, 29, 28, 27, 26, 25, 24, 23]), 6)).toBe(0)
-    expect(depthGain(series([30, 31]), 6)).toBeNull()
+  it('times a rise when the sensor has held it, so a short window still shows a storm in progress', () => {
+    const depth = series([...Array(20).fill(10), 16, 16, 16, 16]) // 6" from hour 20, held through hour 23
+    expect(stormIncrements(depth)).toEqual([{ t: 23 * H, v: 6 }])
+    expect(windowTotals(depth)).toEqual({ 3: 6, 6: 6, 12: 6, 24: null, 48: null })
   })
-})
-
-describe('precip-gauge snow', () => {
-  const H = 3600_000
-  const series = (vals: (number | null)[]) => vals.map((v, i) => ({ t: i * H, v }))
-  it('turns gauge rises into snow by temperature, ignoring jitter dips and resets', () => {
-    const prec = series([1.0, 1.0, 1.1, 1.2, 1.3, 1.4, 1.4, 1.3, 1.4, 1.4, 1.4, 1.4])
-    const cold = series(Array(12).fill(20))
-    expect(precipTotal(precipSnow(prec, cold), 48)).toBeCloseTo(0.4 * 17, 1)
-    expect(precipTotal(precipSnow(prec, series(Array(12).fill(40))), 48)).toBe(0)
-    const reset = series([12, 12, 0, 0, 0.1, 0.1])
-    expect(precipTotal(precipSnow(reset, cold), 48)).toBeCloseTo(1.7, 1)
-  })
-  it('counts gauge snow only when depth confirms it, capped at twice the rise', () => {
-    const snow = series(Array(24).fill(0.5)) // 12" of gauge snow over the day
-    expect(confirmedPrecip(series(Array(24).fill(0)), snow, 24)).toBe(0) // melted on contact
-    expect(confirmedPrecip(series(Array.from({ length: 24 }, (_, i) => i % 2)), snow, 24)).toBe(0) // 1" flicker
-    const briefly = series([...Array(14).fill(0), ...Array(5).fill(3), ...Array(5).fill(0)])
-    expect(peakRise(briefly, 24)).toBe(3)
-    expect(confirmedPrecip(briefly, snow, 24)).toBe(6) // capped at 2 × 3"
-    expect(confirmedPrecip(series([...Array(12).fill(0), ...Array(12).fill(8)]), snow, 24)).toBe(12)
-  })
-  it('only sums the window before the latest reading', () => {
-    const snow = series([1, 1, 1, 1, 1, 1])
-    expect(precipTotal(snow, 3)).toBe(3)
-    expect(precipTotal([], 3)).toBeNull()
-  })
-})
-
-describe('cleanWindows', () => {
-  it('drops sub-1.5" jitter in short windows and keeps totals non-decreasing', () => {
-    // Steamboat-style flicker from a ±1" sensor
-    expect(cleanWindows({ 3: 1, 6: 0, 12: 1, 24: 0, 48: 1 })).toEqual({ 3: 0, 6: 0, 12: 0, 24: 0, 48: 1 })
-    // a real burst carries forward into the longer windows
-    expect(cleanWindows({ 3: 4, 6: 3, 12: 6, 24: 5, 48: 9 })).toEqual({ 3: 4, 6: 4, 12: 6, 24: 6, 48: 9 })
-  })
-  it('keeps unknown windows unknown', () => {
-    expect(cleanWindows({ 3: null, 6: 2, 12: null, 24: 3, 48: null })).toEqual({ 3: null, 6: 2, 12: null, 24: 3, 48: null })
+  it('needs readings back to the start of a window', () => {
+    const none = { 3: null, 6: null, 12: null, 24: null, 48: null }
+    expect(windowTotals(series([5, 5, 5]))).toEqual(none)
+    expect(windowTotals([])).toEqual(none)
   })
 })
 

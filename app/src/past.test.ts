@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { blendPrevious, errorStats } from '../scripts/past-snowfall'
-import { biasPhrase, lastDaysTotal, stationLabel, type PastDay, type PastLocation } from './past'
+import { biasPhrase, lastDaysTotal, stationLabel, stationNote, type PastDay, type PastLocation } from './past'
 
 const day = (d: string, a: number | null, p: number | null): PastDay => ({ d, a, p })
 
@@ -20,8 +20,9 @@ describe('errorStats', () => {
 })
 
 describe('blendPrevious', () => {
-  // 2026-12-01 08:00 UTC = midnight PST: 24 hours of one model at 0.05"/h and 20°F.
-  const t0 = Date.UTC(2026, 11, 1, 8) / 1000
+  // 24 hours of one model at 0.05"/h and 20°F, stamped at the end of each hour: 7am PST Dec 1
+  // (15:00 UTC) through 6am Dec 2, which is the whole Dec 1 observation day.
+  const t0 = Date.UTC(2026, 11, 1, 15) / 1000
   const times = Array.from({ length: 24 }, (_, i) => t0 + i * 3600)
   const hourly = {
     time: times,
@@ -29,7 +30,7 @@ describe('blendPrevious', () => {
     temperature_2m_previous_day1_gem_seamless: times.map(() => 20),
   }
 
-  it('applies the app snow ratio and sums whole PST days', () => {
+  it('applies the app snow ratio and sums whole observation days (6am to 6am PST)', () => {
     expect(blendPrevious(hourly, null, 39, -106, 10000)).toEqual({ '2026-12-01': 20.4 })
   })
 
@@ -50,6 +51,14 @@ describe('past helpers', () => {
     expect(biasPhrase(0.1)).toBe('little systematic bias')
     expect(biasPhrase(0.9)).toBe('forecasts ran 0.9" high')
     expect(biasPhrase(-1.25)).toBe('forecasts ran 1.3" low')
+  })
+
+  it('explains a station picked to match the resort', () => {
+    const st = { type: 'snotel' as const, id: '1344:CO:SNTL', name: 'Alta Lakes SNOTEL', lat: 0, lon: 0, elevFt: 11290, km: 5.3 }
+    const l: PastLocation = { name: 'Telluride', kind: 'resort', station: st, estimate: false, last24In: null, last48In: null, seasonIn: null, days: [], stats: null }
+    expect(stationNote(l)).toBeNull()
+    expect(stationNote({ ...l, station: { ...st, matchedBy: 'resort-reports', replaced: 'Red Mountain Pass SNOTEL', resortCheck: { reportedIn: 6, stationIn: 7, days: 1 } } }))
+      .toBe(`Chosen over Red Mountain Pass SNOTEL: on the days around Telluride's own snow reports, this station measured 7" to the resort's 6".`)
   })
 
   it('labels estimates and stations', () => {

@@ -5,11 +5,16 @@ over the last 24/48/72 h and base depth (in cm), whether the resort is open, and
 was updated. This script reads it and merges into app/public/data/resort-reports.json, which keeps a
 rolling history so the app can show the resort's number next to the station's and our forecast's.
 
-Day convention: a report's 24 h total is dated by the day the snow fell, taken as the report time
-(Mountain Time) minus 12 hours, so a 6am Tuesday report counts as Monday's snow. Only reports
-updated within FRESH_HOURS are recorded, whatever the open flag says (Wolf Creek posts daily while
-flagged 3, apparently weekends-only); a resort that hasn't posted adds nothing rather than repeating
-an old number.
+Each resort's own page also lists its last ~8 daily reports ("recent"), which fills days a run
+missed and, on the first run, backfills a week. Those are fetched only for resorts posting now
+(or all of them with --backfill-all).
+
+Day convention: a report's 24 h total is dated the day before the report's Mountain Time date (a
+Tuesday morning report counts as Monday's snow), the same way OnTheSnow keys its daily series, so
+the two sources never date one report twice. Only reports updated within FRESH_HOURS are recorded,
+whatever the open flag says (Wolf Creek posts daily while flagged 3, apparently weekends-only); a
+resort that hasn't posted adds nothing rather than repeating an old number. Likewise zeros in a
+resort's daily series count only while it is posting: Telluride's showed 0 for days it was closed.
 """
 from __future__ import annotations
 
@@ -17,6 +22,7 @@ import argparse
 import datetime as dt
 import json
 import re
+import time
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -25,6 +31,9 @@ import requests
 from common import ROOT
 
 URL = "https://www.onthesnow.com/colorado/skireport"
+RESORT_URL = "https://www.onthesnow.com/colorado/{slug}/skireport"
+HEADERS = {"User-Agent": "SnowCastCO/1.0 (personal snowfall app; github.com/SpicyCasita/snowcast-co)"}
+PAGE_PAUSE_S = 1.5
 OUT_JSON = ROOT.parent / "app" / "public" / "data" / "resort-reports.json"
 MOUNTAIN = ZoneInfo("America/Denver")
 CM_PER_IN = 2.54
@@ -121,12 +130,30 @@ def parse_reports(html: str) -> dict[str, dict]:
     return out
 
 
+def parse_recent(html: str, slug: str) -> dict[str, float]:
+    """A resort page's recent daily reports -> {snow day: inches}; empty if the page has none."""
+    rows = rsc_rows(html)
+    for row in rows.values():
+        if isinstance(row, dict) and row.get("slug") == slug and "recent" in row:
+            out = {}
+            for r in resolve(row, rows).get("recent") or []:
+                if isinstance(r, dict) and r.get("date") and r.get("snow") is not None:
+                    out[(dt.date.fromisoformat(r["date"][:10]) - dt.timedelta(days=1)).isoformat()] = cm_to_in(r["snow"])
+            return out
+    return {}
+
+
 def snow_day(updated_at: str) -> str:
-    t = dt.datetime.fromisoformat(updated_at).astimezone(MOUNTAIN)
-    return (t - dt.timedelta(hours=12)).date().isoformat()
+    return (dt.datetime.fromisoformat(updated_at).astimezone(MOUNTAIN).date() - dt.timedelta(days=1)).isoformat()
 
 
-def merge(doc: dict, reports: dict[str, dict], now: dt.datetime) -> dict:
+def is_fresh(rep: dict, now: dt.datetime) -> bool:
+    return bool(rep.get("updatedAt")) and now - dt.datetime.fromisoformat(rep["updatedAt"]) <= dt.timedelta(hours=FRESH_HOURS)
+
+
+def merge(doc: dict, reports: dict[str, dict], now: dt.datetime, recent: dict[str, dict[str, float]] | None = None) -> dict:
+    """Fold the latest reports (and any resort daily series in `recent`, by slug) into the history."""
+    recent = recent or {}
     resorts = doc.setdefault("resorts", {})
     cutoff = (now.astimezone(MOUNTAIN).date() - dt.timedelta(days=KEEP_DAYS)).isoformat()
     for rid, slug in SLUGS.items():
@@ -134,12 +161,15 @@ def merge(doc: dict, reports: dict[str, dict], now: dt.datetime) -> dict:
         days = {d: v for d, v in prev.get("days", {}).items() if d >= cutoff}
         rep = reports.get(slug)
         entry = {"slug": slug, "days": days, "latest": prev.get("latest"), "open": prev.get("open", False), "openingDate": prev.get("openingDate")}
+        fresh = bool(rep) and is_fresh(rep, now)
         if rep:
             entry.update(open=rep["open"], openingDate=rep["openingDate"])
-            fresh = rep["updatedAt"] and now - dt.datetime.fromisoformat(rep["updatedAt"]) <= dt.timedelta(hours=FRESH_HOURS)
             if fresh and rep["new24In"] is not None:
                 entry["latest"] = {k: rep[k] for k in ("updatedAt", "new24In", "new48In", "new72In", "depthIn")}
                 days[snow_day(rep["updatedAt"])] = rep["new24In"]
+        for d, v in recent.get(slug, {}).items():
+            if d >= cutoff and v is not None and (v > 0 or fresh):
+                days[d] = v
         entry["days"] = dict(sorted(days.items()))
         resorts[rid] = entry
     doc.update(version=1, source="Resort-reported via OnTheSnow", dayConvention="date = day the snow fell (report time in Mountain Time minus 12 h)", generated=now.replace(microsecond=0).isoformat())
@@ -149,13 +179,15 @@ def merge(doc: dict, reports: dict[str, dict], now: dt.datetime) -> dict:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--out", default=str(OUT_JSON))
-    ap.add_argument("--html", help="parse a saved page instead of fetching")
+    ap.add_argument("--html", help="parse a saved page instead of fetching (no resort pages)")
+    ap.add_argument("--backfill-all", action="store_true", help="read every resort's daily series, not just those posting now")
     args = ap.parse_args()
 
+    session = requests.Session()
     if args.html:
         html = Path(args.html).read_text(encoding="utf-8")
     else:
-        res = requests.get(URL, headers={"User-Agent": "SnowCastCO/1.0 (personal snowfall app; github.com/SpicyCasita/snowcast-co)"}, timeout=60)
+        res = session.get(URL, headers=HEADERS, timeout=60)
         res.raise_for_status()
         html = res.text
     reports = parse_reports(html)
@@ -165,12 +197,25 @@ def main() -> None:
     if missing:
         print(f"  not on the page: {', '.join(missing)}")
 
+    now = dt.datetime.now(dt.timezone.utc)
+    recent: dict[str, dict[str, float]] = {}
+    if not args.html:
+        for slug in sorted({s for s in SLUGS.values() if s in reports and (args.backfill_all or is_fresh(reports[s], now))}):
+            time.sleep(PAGE_PAUSE_S)
+            try:
+                res = session.get(RESORT_URL.format(slug=slug), headers=HEADERS, timeout=60)
+                res.raise_for_status()
+                recent[slug] = parse_recent(res.text, slug)
+            except requests.RequestException as e:
+                print(f"  {slug}: resort page failed ({e.__class__.__name__}); keeping what we have")
+
     out = Path(args.out)
     doc = json.loads(out.read_text(encoding="utf-8")) if out.exists() else {}
-    doc = merge(doc, reports, dt.datetime.now(dt.timezone.utc))
+    doc = merge(doc, reports, now, recent)
     out.write_text(json.dumps(doc, separators=(",", ":")), encoding="utf-8")
     reporting = [rid for rid, e in doc["resorts"].items() if e["latest"] and e["latest"]["updatedAt"] in {r["updatedAt"] for r in reports.values()}]
-    print(f"wrote {out}: {len(reports)} reports on the page, {len(reporting)} of {len(SLUGS)} app resorts with a current report")
+    print(f"wrote {out}: {len(reports)} reports on the page, {len(reporting)} of {len(SLUGS)} app resorts with a current report, "
+          f"daily series from {len(recent)} resort pages")
 
 
 if __name__ == "__main__":
