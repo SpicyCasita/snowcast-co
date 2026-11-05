@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { LOCATIONS_BY_ID, type SnowLocation } from './data/locations'
 import type { PastLocation, PastSnowfall } from './past'
-import { cleanWindows, depthGain, precipSnow, precipTotal, type Reading } from './recent'
+import { cleanWindows, confirmedPrecip, depthGain, peakRise, precipSnow, precipTotal, type Reading } from './recent'
 import { AGITATE_MIN, createMotionFilter, globeParams, STIR_MIN } from './globe'
 import { spicyForced, spicyHits, tapCounter } from './spicy'
 import { stormHits } from './storm'
@@ -84,6 +84,15 @@ describe('precip-gauge snow', () => {
     expect(precipTotal(precipSnow(prec, series(Array(12).fill(40))), 48)).toBe(0)
     const reset = series([12, 12, 0, 0, 0.1, 0.1])
     expect(precipTotal(precipSnow(reset, cold), 48)).toBeCloseTo(1.7, 1)
+  })
+  it('counts gauge snow only when depth confirms it, capped at twice the rise', () => {
+    const snow = series(Array(24).fill(0.5)) // 12" of gauge snow over the day
+    expect(confirmedPrecip(series(Array(24).fill(0)), snow, 24)).toBe(0) // melted on contact
+    expect(confirmedPrecip(series(Array.from({ length: 24 }, (_, i) => i % 2)), snow, 24)).toBe(0) // 1" flicker
+    const briefly = series([...Array(14).fill(0), ...Array(5).fill(3), ...Array(5).fill(0)])
+    expect(peakRise(briefly, 24)).toBe(3)
+    expect(confirmedPrecip(briefly, snow, 24)).toBe(6) // capped at 2 × 3"
+    expect(confirmedPrecip(series([...Array(12).fill(0), ...Array(12).fill(8)]), snow, 24)).toBe(12)
   })
   it('only sums the window before the latest reading', () => {
     const snow = series([1, 1, 1, 1, 1, 1])

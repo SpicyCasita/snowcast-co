@@ -14,9 +14,13 @@ Station matching, per location in app/src/data/locations.ts:
   - No match -> station null; the app script fills in a labelled model estimate.
 
 New snow:
-  - SNOTEL: the larger of (a) snow-depth gain (start of D+1 minus start of D, PST, clipped at 0)
-    and (b) precipitation-gauge water x the app's temperature-based snow-to-liquid ratio. (a)
-    misses snow that melts into warm early-season ground or settles; (b) misses wind undercatch.
+  - SNOTEL: snow-depth gain (start of D+1 minus start of D, PST, clipped at 0), raised to
+    precipitation-gauge water x the app's temperature-based snow-to-liquid ratio when the depth
+    sensor confirms snow built up that day (its 3-hour-median peak rose CONFIRM_IN over the day's
+    start), capped at MAX_RISE_RATIO x that rise. Depth gains under CONFIRM_IN need some gauge water the same day, since the sensor
+    flickers by 1". Depth alone misses snow that settles or melts by day's end; the gauge alone counts
+    snow that melted on contact, graupel and gauge jitter, none of which a snow stake would show:
+    in Oct 2026 Fremont Pass's gauge implied 17" while its depth never passed 2".
   - CoCoRaHS: the observer's measured new snow, dated by the day its window starts.
   - last24/last48: SNOTEL from the same two estimates hourly (depth uses 3-hour medians); CoCoRaHS
     from the latest one or two morning reports when they are from today.
@@ -45,6 +49,13 @@ CLOSE_KM = 5.0
 ELEV_SLACK_FT = 1000.0
 MIN_REPORT_SHARE = 0.5
 SMOOTH_H = 3
+# Depth rise (in) that confirms precip-gauge water as snow on the ground: above the 1" sensor flicker.
+CONFIRM_IN = 2.0
+# Gauge snow may exceed the depth sensor's peak rise by this factor (settling, melt from below);
+# Wolf Creek's 4.5" of water at 31-40°F on Nov 1 2026 raised depth only 3".
+MAX_RISE_RATIO = 2.0
+# Gauge snow (in) on a day that lets a sub-CONFIRM_IN depth gain count: one 0.05" water step or more.
+MIN_WET_IN = 0.3
 # Resort/pass choice: score = |elev - mid-mountain| / 1000 ft + DIST_WEIGHT * km / MAX_KM.
 DIST_WEIGHT = 0.3
 # Snow-to-liquid ratio by air temperature (°F), mirroring snowToLiquidRatio in app/src/forecast/blend.ts.
@@ -174,14 +185,34 @@ def snotel_hourly(session: requests.Session, triplets: list[str], begin: dt.date
     return out
 
 
+def peak_rise(snwd: pd.Series, start: pd.Timestamp, end: pd.Timestamp) -> float:
+    """Highest 3-hour-median depth in (start, end] minus the depth at `start`, clipped at 0."""
+    sd = snwd.astype(float).rolling(SMOOTH_H, center=True, min_periods=1).median().dropna()
+    base = sd[sd.index <= start]
+    win = sd[(sd.index > start) & (sd.index <= end)]
+    if win.empty:
+        return 0.0
+    ref = base.iloc[-1] if len(base) else win.iloc[0]
+    return max(0.0, float(win.max() - ref))
+
+
+def confirmed_precip(df: pd.DataFrame, ps: pd.Series, start: pd.Timestamp, end: pd.Timestamp) -> float:
+    """Precip-derived snow in (start, end]: 0 unless the depth sensor saw snow build up, and at most
+    MAX_RISE_RATIO x that build-up (rain and mixed precip near freezing otherwise turn into feet)."""
+    rise = peak_rise(df.SNWD, start, end)
+    if rise < CONFIRM_IN:
+        return 0.0
+    return min(float(ps[(ps.index > start) & (ps.index <= end)].sum()), MAX_RISE_RATIO * rise)
+
+
 def snotel_recent(df: pd.DataFrame, hours: int) -> float | None:
-    """New snow over the last `hours`: the larger of depth gain and precip-derived snow."""
-    vals = [depth_gain(df.SNWD, hours)]
+    """New snow over the last `hours`: depth gain, raised to precip-derived snow when depth confirms it."""
+    depth = depth_gain(df.SNWD, hours)
     if df.PREC.notna().any():
-        ps = precip_snow(df.PREC, df.TOBS)
-        vals.append(round(float(ps[ps.index > df.index.max() - pd.Timedelta(hours=hours)].sum()), 1))
-    vals = [v for v in vals if v is not None]
-    return max(vals) if vals else None
+        end = df.index.max()
+        precip = round(confirmed_precip(df, precip_snow(df.PREC, df.TOBS), end - pd.Timedelta(hours=hours), end), 1)
+        return precip if depth is None else max(depth, precip)
+    return depth
 
 
 def gauge_elevations(st: pd.DataFrame) -> pd.Series:
@@ -251,10 +282,15 @@ def main() -> None:
             trip = site_to_triplet[str(site)]
             new = g.set_index("date").dsnwd_in.clip(lower=0)
             if trip in hourly and hourly[trip].PREC.notna().any():
-                ps = precip_snow(hourly[trip].PREC, hourly[trip].TOBS)
-                by_day = ps.groupby(ps.index.normalize()).sum()
+                h = hourly[trip]
+                ps = precip_snow(h.PREC, h.TOBS)
                 # Only days the depth record has, so the calendar matches the depth history.
-                new = pd.concat([new, by_day.reindex(new.index)], axis=1).max(axis=1, skipna=True)
+                hour = pd.Timedelta(hours=1)
+                precip = pd.Series({d: confirmed_precip(h, ps, d - hour, d + pd.Timedelta(hours=24) - hour) for d in new.index}, dtype=float)
+                # A small depth gain with a dry gauge is the 1" sensor flickering, not snow.
+                wet = ps.groupby(ps.index.normalize()).sum().reindex(new.index).fillna(0) >= MIN_WET_IN
+                new = new.where((new >= CONFIRM_IN) | wet, 0.0)
+                new = pd.concat([new, precip], axis=1).max(axis=1, skipna=True)
             daily[trip] = {d.date().isoformat(): round(float(v), 1) for d, v in new.dropna().items()}
     else:
         hourly = {}

@@ -1,8 +1,8 @@
 /**
  * Live short-window snowfall (3–48 h) for the Past tab and the easter egg. The daily
  * past-snowfall.json is only refreshed at 5am, so these come straight from the source:
- *   - SNOTEL stations: hourly data from the NRCS AWDB API (CORS-enabled); new snow is the larger of
- *     the depth gain and precip-gauge water × the snow-to-liquid ratio at the hour's temperature.
+ *   - SNOTEL stations: hourly data from the NRCS AWDB API (CORS-enabled); new snow is the depth gain,
+ *     raised to precip-gauge water × the snow-to-liquid ratio when the depth sensor confirms it.
  *   - Everywhere else (CoCoRaHS reports once a day): Open-Meteo's recent hours, converted with the
  *     app's snow-to-liquid ratio, and labelled as an estimate.
  */
@@ -99,6 +99,39 @@ export function precipTotal(snow: Reading[], hours: number): number | null {
   return Math.round(sum * 10) / 10
 }
 
+/** Depth rise (in) that confirms gauge water as snow on the ground; above the 1" sensor flicker. */
+export const CONFIRM_IN = 2
+/** Gauge snow may exceed the depth sensor's peak rise by this factor (settling, melt from below). */
+export const MAX_RISE_RATIO = 2
+
+/** Highest 3-hour-median depth in the last `hours` minus the depth at the window's start, clipped at 0. */
+export function peakRise(depth: Reading[], hours: number): number {
+  const ok = depth.filter((r): r is { t: number; v: number } => r.v != null).sort((a, b) => a.t - b.t)
+  if (!ok.length) return 0
+  const med = (i: number) => {
+    const w = ok.slice(Math.max(0, i - 1), i + 2).map(x => x.v).sort((a, b) => a - b)
+    return w.length % 2 ? w[(w.length - 1) / 2] : (w[w.length / 2 - 1] + w[w.length / 2]) / 2
+  }
+  const start = ok[ok.length - 1].t - hours * 3600_000
+  const baseIdx = ok.filter(r => r.t <= start).length - 1
+  const inWin = ok.map((r, i) => [r.t, i] as const).filter(([t]) => t > start)
+  if (!inWin.length) return 0
+  const base = med(baseIdx >= 0 ? baseIdx : inWin[0][1])
+  return Math.max(0, Math.max(...inWin.map(([, i]) => med(i))) - base)
+}
+
+/**
+ * Gauge snow over the last `hours`, counted only when the depth sensor saw snow build up and capped
+ * at MAX_RISE_RATIO × that build-up. Mirrors pipeline/recent_obs.py confirmed_precip: without this,
+ * snow melting on contact, graupel and rain near freezing read as inches no snow stake ever shows.
+ */
+export function confirmedPrecip(depth: Reading[], snow: Reading[], hours: number): number | null {
+  const total = precipTotal(snow, hours)
+  if (total == null) return null
+  const rise = peakRise(depth, hours)
+  return rise < CONFIRM_IN ? 0 : Math.round(Math.min(total, MAX_RISE_RATIO * rise) * 10) / 10
+}
+
 type SnotelHourly = Record<'SNWD' | 'PREC' | 'TOBS', Reading[]>
 const LIMITS: Record<keyof SnotelHourly, [number, number]> = { SNWD: [0, 400], PREC: [0, 200], TOBS: [-60, 100] }
 
@@ -158,7 +191,7 @@ export function getRecent(id: string, loc: PastLocation, fallback: { lat: number
           const fromPrecip = precipSnow(r.PREC, r.TOBS)
           const raw = {} as RecentSnow['totals']
           for (const w of WINDOWS) {
-            const vals = [depthGain(r.SNWD, w), precipTotal(fromPrecip, w)].filter((v): v is number => v != null)
+            const vals = [depthGain(r.SNWD, w), confirmedPrecip(r.SNWD, fromPrecip, w)].filter((v): v is number => v != null)
             raw[w] = vals.length ? Math.max(...vals) : null
           }
           const totals = cleanWindows(raw)

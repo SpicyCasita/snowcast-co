@@ -83,11 +83,19 @@ def test_precip_snow_counts_gauge_increases_as_snow_by_temperature():
     assert abs(precip_snow(reset, pd.Series(20.0, index=idx[:6])).sum() - 1.7) < 0.05
 
 
-def test_snotel_recent_takes_larger_of_depth_and_precip():
+def test_snotel_recent_counts_gauge_snow_only_when_depth_confirms_it():
     idx = pd.date_range("2026-11-01 00:00", periods=60, freq="h")
-    # Warm ground: depth never rises, but the gauge catches 0.3" of water at 25°F (14:1).
+    # The gauge catches 0.3" of water at 25°F (14:1) but depth never rises: nothing a stake would show.
     df = pd.DataFrame({"SNWD": 0.0, "PREC": np.r_[np.full(45, 2.0), np.full(15, 2.3)], "TOBS": 25.0}, index=idx)
+    assert snotel_recent(df, 24) == 0.0
+    # 1" sensor flicker doesn't confirm it either.
+    assert snotel_recent(df.assign(SNWD=np.tile([0.0, 1.0], 30)), 24) == 0.0
+    # Depth briefly builds to 3" then melts back to 0 by the end: the gauge total counts.
+    df["SNWD"] = np.r_[np.full(46, 0.0), np.full(6, 3.0), np.full(8, 0.0)]
     assert snotel_recent(df, 24) == 4.2
+    # Lots of water near freezing but depth only rose 2": capped at twice the rise.
+    wet = df.assign(PREC=np.r_[np.full(45, 2.0), np.full(15, 4.0)], SNWD=np.r_[np.full(46, 0.0), np.full(14, 2.0)])
+    assert snotel_recent(wet, 24) == 4.0
     df["SNWD"] = np.r_[np.full(40, 0.0), np.full(20, 6.0)]
     assert snotel_recent(df, 24) == 6.0
     assert snotel_recent(df.assign(PREC=np.nan), 24) == 6.0
