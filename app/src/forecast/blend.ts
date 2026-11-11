@@ -45,6 +45,8 @@ export interface BlendedForecast {
   hourlyGustMph: (number | null)[]
   days: DaySummary[]
   next24: Range
+  /** Used by LOOP's "snow is coming" banner (via the alerts worker). */
+  next48: Range
   next72: Range
   next7d: Range
   /** Where the weights came from, for display. */
@@ -335,6 +337,7 @@ export function blend(raw: RawForecast, { weight = defaultWeight, bias, calibrat
     // Late in the day the 240-hour window touches 11 calendar days; the UI shows 10.
     days: days.slice(0, MAX_DAYS),
     next24: windowRange(nowIndex, end(24)),
+    next48: windowRange(nowIndex, end(48)),
     next72: windowRange(nowIndex, end(72)),
     next7d: windowRange(nowIndex, end(168)),
     calibration,

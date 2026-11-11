@@ -1,5 +1,6 @@
 import { parsePutBody, parseSubscription, testPayload, type SubscriptionRecord } from './alerts'
-import { runAlerts, runMorning, subKey, vapid, type Env } from './run'
+import { readColorado, sweepColorado } from './colorado'
+import { RUN_EVERY_MIN, runAlerts, runMorning, subKey, vapid, type Env } from './run'
 
 /**
  * Past-snowfall alerts: 13:00 UTC = 6am MST (7am MDT), after .github/workflows/past.yml (12:00 UTC)
@@ -70,6 +71,11 @@ async function handle(req: Request, env: Env): Promise<Response> {
     return json({ ok: res.status < 300, pushStatus: res.status }, res.status < 300 ? 200 : 502, h)
   }
 
+  // Public and read-only: whether 1"+ is forecast anywhere in Colorado in the next 48 hours (for LOOP).
+  if (req.method === 'GET' && pathname === '/colorado-snow') {
+    return json(await readColorado(env.SUBS), 200, { ...h, 'Cache-Control': 'public, max-age=300' })
+  }
+
   if (req.method === 'GET' && pathname === '/') return json({ ok: true, service: 'snowcast-alerts' }, 200, h)
   return json({ error: 'not found' }, 404, h)
 }
@@ -84,6 +90,8 @@ export default {
     }
   },
   async scheduled(event: ScheduledController, env: Env, ctx: ExecutionContext) {
-    ctx.waitUntil(event.cron === MORNING_CRON ? runMorning(env) : runAlerts(env))
+    if (event.cron === MORNING_CRON) return ctx.waitUntil(runMorning(env))
+    const slot = Math.floor(Date.now() / (RUN_EVERY_MIN * 60_000))
+    ctx.waitUntil(Promise.all([runAlerts(env), sweepColorado(env.SUBS, slot)]))
   },
 }

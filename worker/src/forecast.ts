@@ -33,9 +33,18 @@ export async function fetchWeights(url = WEIGHTS_URL): Promise<SkillWeights | nu
   }
 }
 
-export async function forecastTotals(f: Favorite, weights: SkillWeights | null): Promise<LocationTotals> {
-  const [raw, nws] = await Promise.all([fetchOpenMeteo(f.lat, f.lon, f.elevationFt), fetchNwsSnow(f.lat, f.lon)])
+async function blended(lat: number, lon: number, elevationFt: number, weights: SkillWeights | null) {
+  const [raw, nws] = await Promise.all([fetchOpenMeteo(lat, lon, elevationFt), fetchNwsSnow(lat, lon)])
   if (nws) raw.models.push({ model: 'nws', ...alignNwsSnow(nws, raw.times) })
-  const b = blend(raw, weights ? skillModel(weights, f.lat, f.lon, f.elevationFt) : {})
+  return blend(raw, weights ? skillModel(weights, lat, lon, elevationFt) : {})
+}
+
+export async function forecastTotals(f: Favorite, weights: SkillWeights | null): Promise<LocationTotals> {
+  const b = await blended(f.lat, f.lon, f.elevationFt, weights)
   return { h72: b.next72.expected, d7: b.next7d.expected }
+}
+
+/** Expected snow in the next 48 hours, in inches, from the same blend the app shows. */
+export async function snowNext48(lat: number, lon: number, elevationFt: number, weights: SkillWeights | null) {
+  return (await blended(lat, lon, elevationFt, weights)).next48.expected
 }
