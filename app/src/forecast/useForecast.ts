@@ -4,12 +4,14 @@ import { alignNwsSnow, fetchNwsSnow } from './nws'
 import { fetchEnsemble, parseEnsemble } from './ensemble'
 import { fetchOpenMeteo } from './openMeteo'
 import { loadSkillWeights, skillModel } from './skill'
+import { activeCalls, applySeth, loadSeth, nearestLocationId } from '../seth'
 
 const TTL_MS = 15 * 60 * 1000
 const cache = new Map<string, { at: number; promise: Promise<BlendedForecast> }>()
 
 /**
- * Fetch every model plus NWS in parallel and blend them with the SNOTEL-tuned weights when available.
+ * Fetch every model plus NWS in parallel and blend them with the SNOTEL-tuned weights when available,
+ * then fold in Seth's Weather Report calls for the location (seth.ts).
  * Results are shared and cached for 15 minutes.
  */
 export function getForecast(lat: number, lon: number, elevationFt: number): Promise<BlendedForecast> {
@@ -21,10 +23,15 @@ export function getForecast(lat: number, lon: number, elevationFt: number): Prom
     fetchNwsSnow(lat, lon),
     fetchEnsemble(lat, lon, elevationFt),
     loadSkillWeights(),
-  ]).then(([raw, nws, ens, weights]) => {
+    loadSeth(),
+  ]).then(([raw, nws, ens, weights, seth]) => {
     if (nws) raw.models.push({ model: 'nws', ...alignNwsSnow(nws, raw.times) })
     if (ens) raw.ensemble = parseEnsemble(ens.hourly, ens.times, raw.times)
-    return blend(raw, weights ? skillModel(weights, lat, lon, elevationFt) : {})
+    const forecast = blend(raw, weights ? skillModel(weights, lat, lon, elevationFt) : {})
+    const locId = seth && nearestLocationId(lat, lon)
+    if (!seth || !locId) return forecast
+    const today = forecast.days[0]?.date ?? ''
+    return applySeth(forecast, activeCalls(seth, locId, today), seth.skill.weight)
   })
   promise.catch(() => cache.delete(key))
   cache.set(key, { at: Date.now(), promise })

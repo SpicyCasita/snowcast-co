@@ -490,6 +490,10 @@ a.fav-card::after {
 .total-card-val.over, .total-card-val.under { font-size: 1.9rem; -webkit-text-fill-color: currentColor; background: none; }
 .past-table td, .past-table th { font-variant-numeric: tabular-nums; }
 .past-link { display: block; margin-top: 18px; text-align: right; }
+.seth-card { border-left: 3px solid var(--accent, currentColor); padding-left: 12px; }
+.seth-calls { list-style: none; margin: 6px 0; padding: 0; display: grid; gap: 4px; }
+.seth-calls li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; }
+.seth-days { font-weight: 600; }
 
 .form-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 18px; }
 

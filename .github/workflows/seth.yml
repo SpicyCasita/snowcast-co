@@ -1,0 +1,78 @@
+name: seth
+
+# Seth's Weather Report (Facebook) -> app/public/data/seth-forecasts.json. See pipeline/fetch_seth.py.
+#
+# Setup (once):
+#   1. Make a feed of the Facebook page with an RSS bridge (e.g. rss.app or FetchRSS) and save its URL
+#      as the repository variable SETH_FEED_URL (Settings > Secrets and variables > Actions > Variables).
+#   2. Save a Claude API key as the repository secret ANTHROPIC_API_KEY. Claude reads each new post
+#      and turns it into snow calls.
+# A missed post can be added by hand: Actions > seth > Run workflow, and paste it into post_text.
+
+on:
+  schedule:
+    # Every 3 hours from 6am to 9pm MST: Seth usually posts mornings and evenings.
+    - cron: "20 13,16,19,22 * * *"
+    - cron: "20 1,4 * * *"
+  workflow_dispatch:
+    inputs:
+      post_text:
+        description: "Paste a post's text to add it by hand (optional)"
+        type: string
+        default: ""
+      post_url:
+        description: "Link to that post (optional)"
+        type: string
+        default: ""
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: seth
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pipeline/requirements.txt
+
+      - run: pip install -r pipeline/requirements.txt
+
+      - name: Read new posts and score past calls
+        working-directory: pipeline
+        env:
+          SETH_FEED_URL: ${{ vars.SETH_FEED_URL }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          POST_TEXT: ${{ inputs.post_text }}
+          POST_URL: ${{ inputs.post_url }}
+        run: |
+          if [ -n "$POST_TEXT" ]; then
+            printf '%s' "$POST_TEXT" > "$RUNNER_TEMP/post.txt"
+            python fetch_seth.py --text "$RUNNER_TEMP/post.txt" --url "$POST_URL"
+          else
+            python fetch_seth.py
+          fi
+
+      # Pushes made with GITHUB_TOKEN don't trigger workflows, hence the explicit dispatch.
+      - name: Publish seth-forecasts.json
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/public/data/seth-forecasts.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "data: update seth-forecasts.json"
+          git pull --rebase
+          git push
+          gh workflow run deploy.yml --ref ${{ github.ref_name }}

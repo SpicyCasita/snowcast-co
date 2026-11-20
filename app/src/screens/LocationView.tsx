@@ -7,6 +7,7 @@ import { MODEL_LABELS, type ModelId } from '../forecast/types'
 import { useForecast } from '../forecast/useForecast'
 import { bucketLabel, dayLabel, feet, inches, pct, range } from '../format'
 import { HourlyChart, WeatherChart } from './HourlyChart'
+import type { SethApplied } from '../seth'
 
 const MODEL_ORDER: ModelId[] = ['ncep_hrrr_conus', 'ncep_nam_conus', 'ecmwf_ifs025', 'gfs_seamless', 'gem_seamless', 'icon_seamless', 'nws']
 
@@ -100,6 +101,8 @@ function ForecastBody({ forecast }: { forecast: BlendedForecast }) {
           </div>
         ))}
       </div>
+
+      {forecast.seth && <SethCard applied={forecast.seth} />}
 
       {forecast.next24.chance && (
         <section>
@@ -212,5 +215,31 @@ function ForecastBody({ forecast }: { forecast: BlendedForecast }) {
         <p className="muted small calibration">{forecast.calibration}</p>
       </section>
     </>
+  )
+}
+
+const shortDate = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+
+function SethCard({ applied }: { applied: SethApplied[] }) {
+  const post = applied[0].post
+  const share = Math.round(applied[0].weight * 100)
+  return (
+    <section className="seth-card">
+      <h2 className="section-title">Seth's Weather Report</h2>
+      <p className="small">{post.summary}</p>
+      <ul className="seth-calls">
+        {applied.map(a => (
+          <li key={`${a.call.start}-${a.call.end}`}>
+            <span className="seth-days">{a.call.start === a.call.end ? shortDate(a.call.start) : `${shortDate(a.call.start)} – ${shortDate(a.call.end)}`}</span>
+            <span>Seth {inches(a.sethLowIn)}–{inches(a.sethHighIn)}" · models {inches(a.modelsIn)}" → <strong>{inches(a.blendedIn)}"</strong></span>
+          </li>
+        ))}
+      </ul>
+      <p className="muted small">
+        Posted {new Date(post.published).toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' })}
+        {post.url && <> · <a href={post.url} target="_blank" rel="noreferrer">Read the post</a></>}
+        {share > 0 && <> · counts for {share}% of the totals above, learned from how his past calls verified</>}
+      </p>
+    </section>
   )
 }

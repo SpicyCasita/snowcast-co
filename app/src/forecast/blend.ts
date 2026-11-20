@@ -51,6 +51,8 @@ export interface BlendedForecast {
   next7d: Range
   /** Where the weights came from, for display. */
   calibration: string
+  /** Seth's Weather Report calls folded in (see seth.ts), if any apply here. */
+  seth?: import('../seth').SethApplied[]
 }
 
 /** Returns the relative weight of `model` at `leadH` hours ahead (0 = exclude). */

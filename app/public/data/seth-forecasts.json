@@ -1,0 +1,14 @@
+{
+ "version": 1,
+ "generated": "2026-11-20T13:46:21+00:00",
+ "source": "Seth's Weather Report",
+ "pageUrl": "https://www.facebook.com/share/1A5SEVwpDz/",
+ "skill": {
+  "n": 0,
+  "sethMaeIn": null,
+  "oursMaeIn": null,
+  "weight": 0.15,
+  "prior": 0.15
+ },
+ "posts": []
+}
