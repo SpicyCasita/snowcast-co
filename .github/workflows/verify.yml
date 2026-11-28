@@ -4,6 +4,9 @@ on:
   schedule:
     # 08:10 UTC = 00:10 PST, so the logged 24 h window matches the SNOTEL obs day.
     - cron: "10 8 * * *"
+    # 14:10 UTC = 7:10am MST: the resorts alone, lined up with their own 7am snow reports, which
+    # verify.py scores those windows against. Only logs; the 08:10 run scores.
+    - cron: "10 14 * * *"
   workflow_dispatch:
 
 permissions:
@@ -48,17 +51,26 @@ jobs:
       - name: Export stations for the logger
         working-directory: pipeline
         run: python verify.py --export-stations || echo "no stations.parquet yet; logging locations only"
+        if: github.event.schedule != '10 14 * * *'
 
       - name: Log today's forecasts
+        if: github.event.schedule != '10 14 * * *'
         working-directory: app
         run: npx --yes tsx scripts/log-forecasts.ts
 
+      - name: Log resort forecasts on the resort-report day
+        if: github.event.schedule == '10 14 * * *'
+        working-directory: app
+        run: npx --yes tsx scripts/log-forecasts.ts --resorts
+
       - name: Walk-forward backtest
+        if: github.event.schedule != '10 14 * * *'
         working-directory: pipeline
         run: |
           if [ -f data/forecasts.parquet ]; then python backtest.py; else echo "no archived forecasts yet"; fi
 
       - name: Score logged forecasts
+        if: github.event.schedule != '10 14 * * *'
         working-directory: pipeline
         run: python verify.py
 

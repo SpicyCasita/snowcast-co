@@ -59,13 +59,20 @@ interface Verification {
     byLead?: Record<string, Record<string, Metrics>>
   }
   logged?: { records: number; runs: number; firstRun: string | null; lastRun: string | null }
-  calibration: null | {
-    obs: string
-    chance: Bins | null
-    confidence: Bins | null
-    range: { n: number; inside: number; target: number } | null
-  }
+  calibration: null | CalibrationSet
+  /** The same check at the resorts, against their own reports (pipeline/verify.py resort_calibration). */
+  resortCalibration?: null | CalibrationSet
 }
+
+interface CalibrationSet {
+  obs: string
+  chance: Bins | null
+  confidence: Bins | null
+  range: { n: number; inside: number; target: number } | null
+}
+
+/** The resort-report check replaces the station one once it has this many chance cases. */
+export const RESORT_CALIBRATION_MIN_N = 100
 
 type State = { status: 'loading' } | { status: 'missing' } | { status: 'ready'; data: Verification }
 
@@ -151,7 +158,15 @@ function Report({ data }: { data: Verification }) {
       ))}
       {data.byLead && <ByLead byLead={data.byLead} title="Error by lead day" note="Mean absolute error (SWE inches) by how many days ahead the forecast was made. Lowest per day in blue." />}
       <LiveRecord data={data} />
-      {data.calibration && <Calibration cal={data.calibration} />}
+      {(() => {
+        const resort = data.resortCalibration
+        const useResort = resort?.chance && resort.chance.n >= RESORT_CALIBRATION_MIN_N
+        const cal = useResort ? resort : data.calibration
+        if (!cal) return null
+        const note = useResort ? 'Checked against the resorts\' own morning snow reports.'
+          : `Checked against SNOTEL snow depth for now, which reads below what fell; it switches to the resorts' own reports once ${RESORT_CALIBRATION_MIN_N} cases are logged${resort?.chance ? ` (${resort.chance.n} so far)` : ''}.`
+        return <Calibration cal={cal} note={note} />
+      })()}
       <HowWeScore eventIn={data.backtestMeta?.eventIn} />
       <p className="muted small" style={{ margin: '16px 2px 0' }}>Updated {dateLabel(data.generated)}</p>
     </>
@@ -344,7 +359,7 @@ function LiveRecord({ data }: { data: Verification }) {
   )
 }
 
-function Calibration({ cal }: { cal: NonNullable<Verification['calibration']> }) {
+function Calibration({ cal, note }: { cal: CalibrationSet; note?: string }) {
   const sets = [
     { key: 'chance', title: 'Chance of N inches or more', bins: cal.chance },
     { key: 'confidence', title: 'Headline confidence', bins: cal.confidence },
@@ -382,7 +397,7 @@ function Calibration({ cal }: { cal: NonNullable<Verification['calibration']> })
         </p>
       )}
       <p className="muted small" style={{ margin: '6px 2px 0' }}>
-        A well-calibrated 70% happens about 70% of the time. Observed: {cal.obs}.
+        A well-calibrated 70% happens about 70% of the time. Observed: {cal.obs}.{note && ` ${note}`}
       </p>
     </section>
   )

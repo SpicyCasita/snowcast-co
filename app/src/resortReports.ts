@@ -5,6 +5,7 @@
  * but resorts measure on their own schedule and stake, so expect some straddling).
  */
 import type { PastDay } from './past'
+import { freshLoader, fetchJson } from './refresh'
 
 export interface ResortLatest {
   updatedAt: string
@@ -31,15 +32,14 @@ export interface ResortReports {
   resorts: Record<string, ResortReport>
 }
 
-let pending: Promise<ResortReports | null> | null = null
+/** Resort reports update twice a morning; the app asks again after this long. */
+export const RESORT_TTL_MS = 30 * 60_000
 
-export function loadResortReports(): Promise<ResortReports | null> {
-  pending ??= fetch(`${import.meta.env.BASE_URL}data/resort-reports.json`)
-    .then(r => (r.ok ? r.json() : null))
-    .then(j => (j?.version === 1 && j.resorts ? (j as ResortReports) : null))
-    .catch(() => null)
-  return pending
-}
+export const loadResortReports = freshLoader<ResortReports>(
+  () => fetchJson(`${import.meta.env.BASE_URL}data/resort-reports.json`)
+    .then(j => ((j as ResortReports | null)?.version === 1 && (j as ResortReports).resorts ? (j as ResortReports) : null)),
+  RESORT_TTL_MS,
+)
 
 /** A report counts as current for 30 h, like the pipeline's freshness rule. */
 export const isCurrent = (latest: ResortLatest | null, now = Date.now()) =>

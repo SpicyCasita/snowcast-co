@@ -1,7 +1,16 @@
 import { fmtIn, type Favorite, type PushPayload, type Thresholds } from './alerts'
 
 /** What the Worker needs from the app's data/past-snowfall.json (app/scripts/past-snowfall.ts). */
-export interface PastDay { d: string; a: number | null; p: number | null }
+export interface PastDay {
+  d: string
+  a: number | null
+  p: number | null
+  /** Where `a` came from; files from before sources were recorded leave it out. */
+  s?: 'resort' | 'snotel' | 'cocorahs' | 'estimate'
+}
+
+/** Forecast misses are only judged on a measurement taken the way a forecast is: a resort's or an observer's daily board. */
+const BOARD_SOURCES = new Set(['resort', 'cocorahs'])
 export interface PastLocation {
   name: string
   station: { type: 'snotel' | 'cocorahs'; name: string } | null
@@ -66,9 +75,15 @@ export function evaluatePast(
 
   if (t.missIn != null) {
     const hits = favs.flatMap(([f, l]) => {
-      // The most recent day with both a measurement and a prediction (normally yesterday).
-      const day = [...l.days].reverse().find(x => x.a != null && x.p != null)
+      // The most recent day with both a measurement and a prediction (normally yesterday). SNOTEL depth
+      // reads below a snow board (it settles), so in files that record sources only boards count.
+      let i = l.days.length - 1
+      while (i >= 0 && !(l.days[i].a != null && l.days[i].p != null && (l.days[i].s == null || BOARD_SOURCES.has(l.days[i].s!)))) i--
+      const day = l.days[i]
       if (!day || Math.abs(day.p! - day.a!) < t.missIn! || lastPast[`miss:${f.id}`] === day.d) return []
+      // A day of slack: a storm forecast for the evening before and measured the next morning is no miss.
+      const before = l.days[i - 1]
+      if (before?.a != null && before.p != null && Math.abs(before.p + day.p! - before.a - day.a!) < t.missIn!) return []
       return [{ f, day, err: day.p! - day.a! }]
     }).sort((a, b) => Math.abs(b.err) - Math.abs(a.err))
     if (hits.length) {

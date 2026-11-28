@@ -48,6 +48,18 @@ describe('forecast miss', () => {
     expect(r.lastPast['miss:v']).toBe('2026-11-01')
   })
 
+  it('gives a storm a day of slack', () => {
+    const shifted = past({ v: loc({ days: [{ d: '2026-11-01', a: 0, p: 5 }, { d: '2026-11-02', a: 5, p: 0 }] }) })
+    expect(evaluatePast({ favorites: [fav('v')], thresholds: { ...off, missIn: 4 } }, shifted, friday).payloads).toHaveLength(0)
+  })
+
+  it('judges only resort and observer days in files that record sources', () => {
+    const days = [{ d: '2026-10-31', a: 0, p: 0, s: 'snotel' as const }, { d: '2026-11-01', a: 0, p: 6, s: 'snotel' as const }]
+    expect(evaluatePast({ favorites: [fav('v')], thresholds: { ...off, missIn: 4 } }, past({ v: loc({ days }) }), friday).payloads).toHaveLength(0)
+    const board = days.map(d => ({ ...d, s: 'resort' as const }))
+    expect(evaluatePast({ favorites: [fav('v')], thresholds: { ...off, missIn: 4 } }, past({ v: loc({ days: board }) }), friday).payloads).toHaveLength(1)
+  })
+
   it('stays quiet when the error is under the threshold, and dedupes by scored day', () => {
     expect(evaluatePast({ favorites: [fav('v')], thresholds: { ...off, missIn: 6 } }, p, friday).payloads).toHaveLength(0)
     expect(evaluatePast({ favorites: [fav('v')], thresholds: { ...off, missIn: 4 }, lastPast: { 'miss:v': '2026-11-01' } }, p, friday).payloads).toHaveLength(0)

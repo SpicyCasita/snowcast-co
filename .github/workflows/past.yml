@@ -5,6 +5,8 @@ on:
     # 12:00 UTC = 5am MST (6am MDT): fresh overnight totals, published before the alerts
     # Worker's morning run at 13:00 UTC (MORNING_CRON in worker/src/index.ts).
     - cron: "0 12 * * *"
+  # Also dispatched by resort-reports.yml after its 14:45 and 17:30 UTC runs, which come after the
+  # 7am MST day boundary, so yesterday's day is finished (with the resort's report) the same morning.
   workflow_dispatch:
 
 permissions:

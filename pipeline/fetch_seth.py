@@ -9,8 +9,9 @@ Each new post is read by Claude, which turns the prose ("Summit County 6-10 inch
 Saturday, Front Range foothills 2-4") into calls: which app locations, which days, low-high inches.
 Posts without numbers (photos, "storm coming next week, details soon") yield no calls.
 
-Skill: once a call's days have passed, its midpoint is scored against what the location's station
-measured (past-snowfall.json "a"), next to our own day-before forecast for the same days ("p").
+Skill: once a call's days have passed, its midpoint is scored against what was measured there
+(past-snowfall.json "a": the resort's own report where it posted one, else the station; model
+estimates don't count), next to our own day-before forecast for the same days ("p").
 The weight the app gives Seth is his share of a two-way inverse-MAE² blend against our forecast,
 shrunk toward PRIOR_WEIGHT (about one model's share) until SHRINK_N pairs have been scored. Our
 side is a day-before forecast, usually a shorter lead than his, so the comparison is a tough one.
@@ -229,7 +230,7 @@ def score(posts: list[dict], past: Optional[dict], today: dt.date) -> dict:
         if dt.date.fromisoformat(end) >= today or lid not in days_by_loc:
             continue
         days = [days_by_loc[lid].get(d) for d in daterange(start, end)]
-        if any(d is None or d.get("a") is None or d.get("p") is None for d in days):
+        if any(d is None or d.get("a") is None or d.get("p") is None or d.get("s") == "estimate" for d in days):
             continue
         actual = sum(d["a"] for d in days)
         ours = sum(d["p"] for d in days)

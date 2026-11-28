@@ -14,6 +14,12 @@ are checked against observed snow over the same window: SNOTEL daily snow-depth 
 window's PST days (settling makes this a lower bound on snowfall), or CoCoRaHS new snow when logged
 at a gauge. Only windows starting within a few hours of the station's day start are used.
 
+Resort calibration: the same check for the resorts, against their own morning snow reports
+(resort-reports.json, from each resort's opening day), on the windows log-forecasts.ts --resorts
+logs at 7am MST, when a resort report's day starts. Resort boards measure new snow before it
+settles, as the forecast does, so this is the like-for-like check; the app shows it once there's
+enough of it.
+
   python verify.py                    write verification.json
   python verify.py --export-stations  write data/log-stations.json for the logger
 """
@@ -34,6 +40,9 @@ from common import DATA, ROOT, SNOTEL_PARQUET, STATIONS_PARQUET, station_list
 VERSION = 1
 APP_DATA = ROOT.parent / "app" / "public" / "data"
 VERIFICATION_JSON = APP_DATA / "verification.json"
+RESORT_REPORTS_JSON = APP_DATA / "resort-reports.json"
+# app/scripts/log-forecasts.ts RESORT_DAY_START_H: resort-report days start at 6am PST (7am MST).
+RESORT_DAY_START_H = 6
 LOG_STATIONS = DATA / "log-stations.json"
 MIN_COVERAGE = 0.9  # share of the PST day still ahead when logged
 ALIGN_HOURS = 3  # window start must be this close to 00:00 PST
@@ -160,9 +169,48 @@ def window_days(start: int, hours: int, day_start_h: int = 0) -> list[pd.Timesta
     return [first + pd.Timedelta(days=i) for i in range(hours // 24)]
 
 
+def _bins(pairs: list[tuple[float, bool]]) -> dict | None:
+    if not pairs:
+        return None
+    p = np.array([x for x, _ in pairs])
+    y = np.array([v for _, v in pairs], dtype=float)
+    idx = np.clip(np.digitize(p, PROB_BINS[1:-1]), 0, len(PROB_BINS) - 2)
+    out = []
+    for i in range(len(PROB_BINS) - 1):
+        sel = idx == i
+        if sel.any():
+            out.append({"lo": round(PROB_BINS[i], 1), "hi": round(PROB_BINS[i + 1], 1), "n": int(sel.sum()),
+                        "meanP": round(float(p[sel].mean()), 3), "freq": round(float(y[sel].mean()), 3)})
+    clim = y.mean()
+    brier = float(((p - y) ** 2).mean())
+    ref = float(((clim - y) ** 2).mean())
+    return {"n": len(pairs), "brier": round(brier, 4), "brierSkill": round(1 - brier / ref, 3) if ref > 0 else None, "bins": out}
+
+
+def _summarise(windows: list[tuple[dict, float]], obs_note: str) -> dict | None:
+    """Calibration tables from (logged window, observed inches) pairs."""
+    chance, conf, ranges = [], [], []
+    for win, o in windows:
+        for t, p in (win.get("chance") or {}).items():
+            chance.append((float(p), o >= float(t)))
+        if win.get("confidence") is not None and win.get("bucket"):
+            lo, hi = win["bucket"]
+            conf.append((float(win["confidence"]), o >= lo and (hi is None or o < hi)))
+        if "low" in win and "high" in win:
+            ranges.append(win["low"] <= o <= win["high"])
+    if not (chance or conf or ranges):
+        return None
+    return {
+        "obs": obs_note,
+        "chance": _bins(chance),
+        "confidence": _bins(conf),
+        "range": {"n": len(ranges), "inside": round(float(np.mean(ranges)), 3), "target": 0.8} if ranges else None,
+    }
+
+
 def calibration(recs: list[dict], obs: pd.DataFrame) -> dict | None:
     snow = obs.dropna(subset=["snow_in"]).set_index(["src", "site", "date"]).snow_in
-    chance, conf, ranges = [], [], []
+    windows: list[tuple[dict, float]] = []
     seen = set()
     for r in sorted(recs, key=lambda r: r.get("run", "")):
         if r.get("src") not in ("snotel", "cocorahs") or "start" not in r:
@@ -178,40 +226,50 @@ def calibration(recs: list[dict], obs: pd.DataFrame) -> dict | None:
             if any(v is None or pd.isna(v) for v in vals):
                 continue
             seen.add(ident)
-            o = float(sum(vals))
-            for t, p in (win.get("chance") or {}).items():
-                chance.append((float(p), o >= float(t)))
-            if win.get("confidence") is not None and win.get("bucket"):
-                lo, hi = win["bucket"]
-                conf.append((float(win["confidence"]), o >= lo and (hi is None or o < hi)))
-            if "low" in win and "high" in win:
-                ranges.append(win["low"] <= o <= win["high"])
-    if not (chance or conf or ranges):
-        return None
+            windows.append((win, float(sum(vals))))
+    return _summarise(windows, "SNOTEL snow-depth gain over the window (a lower bound on snowfall); CoCoRaHS new snow where logged")
 
-    def bins(pairs: list[tuple[float, bool]]) -> dict | None:
-        if not pairs:
-            return None
-        p = np.array([x for x, _ in pairs])
-        y = np.array([v for _, v in pairs], dtype=float)
-        idx = np.clip(np.digitize(p, PROB_BINS[1:-1]), 0, len(PROB_BINS) - 2)
-        out = []
-        for i in range(len(PROB_BINS) - 1):
-            sel = idx == i
-            if sel.any():
-                out.append({"lo": round(PROB_BINS[i], 1), "hi": round(PROB_BINS[i + 1], 1), "n": int(sel.sum()),
-                            "meanP": round(float(p[sel].mean()), 3), "freq": round(float(y[sel].mean()), 3)})
-        clim = y.mean()
-        brier = float(((p - y) ** 2).mean())
-        ref = float(((clim - y) ** 2).mean())
-        return {"n": len(pairs), "brier": round(brier, 4), "brierSkill": round(1 - brier / ref, 3) if ref > 0 else None, "bins": out}
 
-    return {
-        "obs": "SNOTEL snow-depth gain over the window (a lower bound on snowfall); CoCoRaHS new snow where logged",
-        "chance": bins(chance),
-        "confidence": bins(conf),
-        "range": {"n": len(ranges), "inside": round(float(np.mean(ranges)), 3), "target": 0.8} if ranges else None,
-    }
+def load_resort_days(path: Path = RESORT_REPORTS_JSON) -> dict[str, dict[str, float]]:
+    """Resort id -> {snow day: the resort's reported new snow}, from the first day its reports count
+    (recent_obs.measured_from: opening day, or its first reported snowfall if earlier)."""
+    from recent_obs import measured_from
+    if not path.exists():
+        return {}
+    doc = json.loads(path.read_text(encoding="utf-8"))
+    out = {}
+    for rid, r in doc.get("resorts", {}).items():
+        since = measured_from(r)
+        if since:
+            out[rid] = {d: float(v) for d, v in (r.get("days") or {}).items() if v is not None and d >= since}
+    return out
+
+
+def resort_calibration(recs: list[dict], resort_days: dict[str, dict[str, float]]) -> dict | None:
+    """The calibration check at the resorts, against their own reports (see the module docstring)."""
+    windows: list[tuple[dict, float]] = []
+    seen = set()
+    for r in sorted(recs, key=lambda r: r.get("run", "")):
+        if r.get("src") != "location" or int(r.get("dayStartH", 0)) != RESORT_DAY_START_H or "start" not in r:
+            continue
+        rid = str(r.get("id", "")).removeprefix("loc:")
+        reported = resort_days.get(rid)
+        if not reported:
+            continue
+        for key, win in (r.get("w") or {}).items():
+            days = window_days(int(r["start"]), int(key), RESORT_DAY_START_H)
+            if not days or days[0].month not in bias.SEASON_MONTHS:
+                continue
+            ident = (rid, days[0], key)
+            if ident in seen:
+                continue
+            vals = [reported.get(d.date().isoformat()) for d in days]
+            if any(v is None for v in vals):
+                continue
+            seen.add(ident)
+            windows.append((win, float(sum(vals))))
+    note = "the resorts' own morning snow reports over the window (new snow before it settles, as forecast)"
+    return _summarise(windows, note)
 
 
 # --- publish --------------------------------------------------------------------------------------
@@ -269,6 +327,7 @@ def build(app_data: Path = APP_DATA, backtest_json: Path = backtest.BACKTEST_JSO
         "live": live,
         "logged": {"records": len(recs), "runs": len(runs), "firstRun": runs[0] if runs else None, "lastRun": runs[-1] if runs else None},
         "calibration": calibration(recs, obs) if recs else None,
+        "resortCalibration": resort_calibration(recs, load_resort_days(app_data / "resort-reports.json")) if recs else None,
     }
     return doc
 

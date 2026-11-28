@@ -111,3 +111,12 @@ def test_main_extracts_new_posts_only(tmp_path, monkeypatch):
     assert "text" not in data["posts"][0]
     assert fetch_seth.main(["--feed", "x"]) == 0
     assert len(seen) == 2  # second run reads nothing new
+
+
+def test_score_skips_model_estimates_and_uses_resort_reports():
+    call = [{"locations": ["vail"], "start": "2026-11-10", "end": "2026-11-10", "lowIn": 4, "highIn": 6}]
+    est = {"locations": {"vail": {"days": [{"d": "2026-11-10", "a": 5, "p": 1, "s": "estimate"}]}}}
+    assert score([post("2026-11-09T12:00:00+00:00", call)], est, dt.date(2026, 11, 20))["n"] == 0
+    resort = {"locations": {"vail": {"days": [{"d": "2026-11-10", "a": 5, "p": 1, "s": "resort", "st": 1}]}}}
+    s = score([post("2026-11-09T12:00:00+00:00", call)], resort, dt.date(2026, 11, 20))
+    assert s["n"] == 1 and s["sethMaeIn"] == 0 and s["oursMaeIn"] == 4

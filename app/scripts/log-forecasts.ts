@@ -13,6 +13,11 @@
  *         each model's raw QPF, and blended snow; stations only
  *
  * Run it near 00:00 PST (08:00 UTC) so the 24 h window lines up with the SNOTEL day.
+ *
+ *   npx tsx scripts/log-forecasts.ts --resorts
+ *
+ * logs only the resorts, with dayStartH 6: run near 06:00 PST (14:00 UTC), so the windows line up with
+ * the resorts' own 7am MST snow reports, which verify.py scores them against.
  */
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
@@ -59,8 +64,16 @@ function args() {
     // Open-Meteo rate-limits per minute and an ensemble call counts many times over; without pacing
     // the later points silently lose their ensemble (and with it confidence and chances).
     paceMs: Number(get('pace-ms', '2500')),
+    resorts: a.includes('--resorts'),
   }
 }
+
+/** Resort locations only, on the resort-report day (7am MST = 6am PST). */
+export const RESORT_DAY_START_H = 6
+const resortPoints = (): Point[] => LOCATIONS.filter(l => l.kind === 'resort').map(l => ({
+  id: `loc:${l.id}`, src: 'location', name: l.name, lat: l.lat, lon: l.lon,
+  ft: Math.round((l.baseFt + l.summitFt) / 2), dayStartH: RESORT_DAY_START_H,
+}))
 
 const km = (a: { lat: number; lon: number }, b: { lat: number; lon: number }) => {
   const rad = Math.PI / 180
@@ -230,7 +243,7 @@ async function main() {
     console.warn(`no usable weights at ${opt.weights}; logging the default blend`)
   }
 
-  let pts = points(opt.stations, opt.radiusKm)
+  let pts = opt.resorts ? resortPoints() : points(opt.stations, opt.radiusKm)
   if (opt.limit > 0) pts = pts.slice(0, opt.limit)
   const lines: string[] = []
   let failed = 0

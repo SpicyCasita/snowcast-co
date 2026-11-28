@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { LOCATIONS_BY_ID, type SnowLocation } from './data/locations'
 import type { PastLocation, PastSnowfall } from './past'
-import { stormIncrements, windowTotals, type Reading } from './recent'
+import { snowRises, stormIncrements, windowTotals, type Reading } from './recent'
 import { AGITATE_MIN, createMotionFilter, globeParams, STIR_MIN } from './globe'
 import { spicyForced, spicyHits, tapCounter } from './spicy'
 import { stormHits } from './storm'
@@ -76,15 +76,11 @@ describe('live snow from hourly depth', () => {
     // melts back to bare ground, then snows again
     expect(total(stormIncrements(series([...Array(6).fill(0), ...Array(6).fill(3), ...Array(6).fill(0), ...Array(6).fill(3)])))).toBe(6)
   })
-  it('times a rise when the sensor has held it, so a short window still shows a storm in progress', () => {
+  it('credits a rise to the hour it began; windows count back from now', () => {
     const depth = series([...Array(20).fill(10), 16, 16, 16, 16]) // 6" from hour 20, held through hour 23
-    expect(stormIncrements(depth)).toEqual([{ t: 23 * H, v: 6 }])
-    expect(windowTotals(depth)).toEqual({ 3: 6, 6: 6, 12: 6, 24: null, 48: null })
-  })
-  it('needs readings back to the start of a window', () => {
-    const none = { 3: null, 6: null, 12: null, 24: null, 48: null }
-    expect(windowTotals(series([5, 5, 5]))).toEqual(none)
-    expect(windowTotals([])).toEqual(none)
+    expect(stormIncrements(depth)).toEqual([{ t: 20 * H, v: 6 }])
+    // The readings only go back 23 hours, so the 24 and 48 h windows can't say anything.
+    expect(windowTotals(snowRises({ depth }), 23.5 * H).totals).toEqual({ 3: 0, 6: 6, 12: 6, 24: null, 48: null })
   })
 })
 

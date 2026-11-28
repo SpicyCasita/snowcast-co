@@ -47,3 +47,11 @@ jobs:
           git pull --rebase
           git push
           gh workflow run deploy.yml --ref ${{ github.ref_name }}
+
+      # Both runs are after the 7am MST day boundary: rebuilding past-snowfall now finishes the day
+      # that just ended (with this morning's resort reports) instead of waiting for tomorrow's 5am build.
+      - name: Rebuild past snowfall
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run past.yml --ref ${{ github.ref_name }}

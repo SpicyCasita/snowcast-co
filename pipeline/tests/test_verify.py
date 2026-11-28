@@ -87,3 +87,24 @@ def test_build_without_logs_keeps_backtest(tmp_path, obs, monkeypatch):
     # Without a fresh backtest the previous file's tables carry over.
     again = verify.build(app_data=tmp_path, backtest_json=tmp_path / "none.json", previous=doc)
     assert again["leaderboard"] == doc["leaderboard"]
+
+
+def test_resort_calibration_uses_the_resorts_own_reports(tmp_path):
+    # Logged at 06:10 PST on Jan 10 for Winter Park with dayStartH 6: the 24 h window is the resort's
+    # Jan 10 snow day (reported the morning of Jan 11).
+    start = int(pd.Timestamp("2026-01-10 14:10", tz="UTC").timestamp())
+    rec = {"v": 1, "run": "2026-01-10T14:10Z", "id": "loc:winter-park", "src": "location", "start": start, "dayStartH": 6,
+           "w": {"24": {"expected": 5.0, "low": 2.0, "high": 8.0, "chance": {"1": 0.9, "6": 0.3}}, "48": {"expected": 5.0, "low": 2.0, "high": 8.0}}}
+    midnight = {**rec, "dayStartH": 0, "start": int(pd.Timestamp("2026-01-10 08:10", tz="UTC").timestamp())}
+    reports = tmp_path / "resort-reports.json"
+    reports.write_text(json.dumps({"resorts": {"winter-park": {"openingDate": "2026-01-01", "days": {"2026-01-10": 4.0, "2025-12-31": 0.0}}}}))
+    days = verify.load_resort_days(reports)
+    assert days == {"winter-park": {"2026-01-10": 4.0}}
+    cal = verify.resort_calibration([rec, midnight, {**rec, "run": "2026-01-10T14:20Z"}], days)
+    # One 24 h window (the midnight log doesn't line up; the 48 h window runs past the reports; a
+    # second run on the same day doesn't count twice). 4" fell: >=1 happened, >=6 didn't; inside 2-8.
+    assert cal["chance"]["n"] == 2
+    assert sorted(b["freq"] for b in cal["chance"]["bins"]) == [0.0, 1.0]
+    assert cal["range"] == {"n": 1, "inside": 1.0, "target": 0.8}
+    assert "resorts' own" in cal["obs"]
+    assert verify.resort_calibration([rec], {}) is None
